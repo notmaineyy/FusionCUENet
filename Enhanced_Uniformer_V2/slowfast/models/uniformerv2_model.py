@@ -2,7 +2,7 @@
 import os
 from collections import OrderedDict
 
-from timm.models.layers import DropPath
+from timm.layers import DropPath
 import torch
 from torch import nn
 from torch.nn import MultiheadAttention

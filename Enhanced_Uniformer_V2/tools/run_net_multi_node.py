@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+import os, sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 """Wrapper to train and test a video classification model."""
 from slowfast.config.defaults import assert_and_infer_cfg
 from slowfast.utils.misc import launch_job
@@ -10,9 +14,6 @@ from slowfast.utils.parser import load_config, parse_args
 from test_net import test
 from train_net import train
 # from visualization import visualize
-
-import os
-
 
 def parse_ip(s):
     s = s.split("-")

@@ -1,3 +1,11 @@
+# Add to imports at the top
+import argparse
+import os, sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from slowfast.config.defaults import get_cfg
+
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
@@ -164,6 +172,7 @@ def test(cfg):
     logger.info(cfg)
 
     # Build the video model and print model statistics.
+    cfg = setup_resnet_config(cfg)
     model = build_model(cfg)
     #if du.is_master_proc() and cfg.LOG_MODEL_INFO:
         #misc.log_model_info(model, cfg, use_train_input=False)
@@ -219,3 +228,73 @@ def test(cfg):
             'video_labels': test_meter.video_labels.cpu().numpy()
         }
         pickle.dump(result, f)
+
+def setup_resnet_config(cfg):
+    """Set ResNet-specific configuration parameters."""
+    # Depth settings (50 for ResNet-50)
+    cfg.RESNET.DEPTH = 50
+    
+    # Block configuration for ResNet-50: [3, 4, 6, 3]
+    if cfg.RESNET.DEPTH == 50:
+        cfg.RESNET.NUM_BLOCKS = [3, 4, 6, 3]
+    elif cfg.RESNET.DEPTH == 101:
+        cfg.RESNET.NUM_BLOCKS = [3, 4, 23, 3]
+    else:
+        raise ValueError("Unsupported RESNET.DEPTH: {}".format(cfg.RESNET.DEPTH))
+    
+    # Temporal kernel sizes (must match number of blocks per stage)
+    cfg.RESNET.TEMP_KERNEL_SIZES = [
+        [3] * cfg.RESNET.NUM_BLOCKS[0],
+        [3] * cfg.RESNET.NUM_BLOCKS[1],
+        [3] * cfg.RESNET.NUM_BLOCKS[2],
+        [3] * cfg.RESNET.NUM_BLOCKS[3]
+    ]
+    
+    # Other ResNet parameters
+    cfg.RESNET.NUM_GROUPS = 1
+    cfg.RESNET.WIDTH_PER_GROUP = 64
+    cfg.RESNET.SPATIAL_DILATIONS = [[1], [1], [1], [1]]
+    cfg.RESNET.SPATIAL_STRIDES = [[1], [2], [2], [2]]
+    cfg.RESNET.TRANS_FUNC = "bottleneck_transform"
+    cfg.RESNET.STRIDE_1X1 = False
+    cfg.RESNET.INPLACE_RELU = True
+    return cfg
+
+
+# Replace the entire "if __name__ == '__main__'" block at the bottom with:
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Evaluate CUENet on custom dataset")
+    parser.add_argument(
+        "--dataset_dir", 
+        required=True,
+        help="Path to combined dataset directory",
+        default="dataset"
+    )
+    parser.add_argument(
+        "--annotation_file",
+        required=True,
+        help="Path to test annotation file",
+        default="dataset/combined_annotations.txt"
+    )
+    parser.add_argument(
+        "--weights_path",
+        required=True,
+        help="Path to pretrained weights (.pyth)"
+    )
+    parser.add_argument(
+        "--output_dir",
+        default="./results",
+        help="Output directory for results"
+    )
+    args = parser.parse_args()
+
+    # Setup configuration
+    cfg = get_cfg()
+    
+    cfg.NUM_GPUS = 0
+    
+    # Create output directory
+    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+    
+    # Run evaluation
+    test(cfg)

@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 from functools import partial
 from timm.models.vision_transformer import _cfg
-from timm.models.layers import trunc_normal_, DropPath, to_2tuple
+from timm.layers import trunc_normal_, DropPath, to_2tuple
 from .build import MODEL_REGISTRY
 import os
 
