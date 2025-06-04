@@ -50,7 +50,7 @@ def parse_args():
         "--cfg",
         dest="cfg_file",
         help="Path to the config file",
-        default="configs/Kinetics/SLOWFAST_4x16_R50.yaml",
+        default="CUENet/Enhanced_Uniformer_V2/configs/Kinetics/SLOWFAST_4x16_R50.yaml",
         type=str,
     )
     parser.add_argument(

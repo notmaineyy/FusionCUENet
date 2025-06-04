@@ -7,7 +7,10 @@ import numpy as np
 import os
 import pickle
 import torch
+import sys
 from iopath.common.file_io import g_pathmgr
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
