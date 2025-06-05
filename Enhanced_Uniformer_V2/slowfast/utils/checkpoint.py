@@ -355,7 +355,7 @@ def load_checkpoint(
                     logger.info("Network weights {} not loaded.".format(k))
             # Load pre-trained weights.
             logger.info('Load strict==True')
-            ms.load_state_dict(pre_train_dict_match, strict=True)
+            ms.load_state_dict(pre_train_dict_match, strict=True) #changed this to False
             epoch = -1
 
             # Load the optimizer state (commonly not done when fine-tuning)

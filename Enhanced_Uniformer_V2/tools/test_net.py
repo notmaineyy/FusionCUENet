@@ -218,4 +218,5 @@ def test(cfg):
             'video_preds': test_meter.video_preds.cpu().numpy(),
             'video_labels': test_meter.video_labels.cpu().numpy()
         }
+        print("RESULTS:",result)
         pickle.dump(result, f)

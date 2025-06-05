@@ -44,6 +44,7 @@ def build_model(cfg, gpu_id=None, ema=False):
     if cfg.MODEL.ARCH in ['uniformer']:
         checkpoint = model.get_pretrained_model(cfg)
         if checkpoint:
+            print
             logger.info('load pretrained model')
             model.load_state_dict(checkpoint, strict=False)
 

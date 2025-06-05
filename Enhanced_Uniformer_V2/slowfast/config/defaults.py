@@ -150,7 +150,7 @@ _C.TEST.DATASET = "kinetics"
 _C.TEST.BATCH_SIZE = 8
 
 # Path to the checkpoint to load the initial weight.
-_C.TEST.CHECKPOINT_FILE_PATH = ""
+_C.TEST.CHECKPOINT_FILE_PATH = "best-001.pyth"
 
 # Number of clips to sample from a video uniformly for aggregating the
 # prediction results.
@@ -623,7 +623,7 @@ _C.SLOWFAST.FUSION_KERNEL_SZ = 5
 _C.DATA = CfgNode()
 
 # The path to the data directory.
-_C.DATA.PATH_TO_DATA_DIR = ""
+_C.DATA.PATH_TO_DATA_DIR = "dataset/"
 
 # The path to the extra data directory.
 _C.DATA.EXTRA_PATH_TO_DATA_DIR = ""
@@ -635,7 +635,7 @@ _C.DATA.PATH_TO_DATA_DIR_LIST = [""]
 _C.DATA.PATH_LABEL_SEPARATOR = " "
 
 # Video path prefix if any.
-_C.DATA.PATH_PREFIX = ""
+_C.DATA.PATH_PREFIX = "dataset/"
 
 # The list of video path prefix if any.
 _C.DATA.PATH_PREFIX_LIST = [""]
@@ -827,8 +827,8 @@ _C.LOG_PERIOD = 10
 # If True, log the model info.
 _C.LOG_MODEL_INFO = True
 
-# Distributed backend.
-_C.DIST_BACKEND = "nccl"
+# Distributed backend. (changed to gloo to avoid NCCL errors)
+_C.DIST_BACKEND = "gloo"
 
 # ---------------------------------------------------------------------------- #
 # Benchmark options

@@ -15,12 +15,16 @@ import slowfast.utils.logging as logging
 logger = logging.get_logger(__name__)
 
 
-MODEL_PATH = '/data/DERI-AVA/code_dirs/UniFormerV2/model_chkpts'
+""" MODEL_PATH = '/data/DERI-AVA/code_dirs/UniFormerV2/model_chkpts'
 _MODELS = {
     "ViT-B/16": os.path.join(MODEL_PATH, "vit_b16.pth"),
     "ViT-L/14": os.path.join(MODEL_PATH, "vit_l14.pth"),
     "ViT-L/14_336": os.path.join(MODEL_PATH, "vit_l14_336.pth"),
 }
+ """
+_MODELS = {"ViT-B/16": "best-001.pyth",
+    "ViT-L/14": "best-001.pyth",
+    "ViT-L/14_336": "best-001.pyth"}
 
 
 class LayerNorm(nn.LayerNorm):
@@ -384,14 +388,6 @@ def inflate_weight(weight_2d, time_dim, center=True):
 
 def load_state_dict(model, state_dict):
     state_dict_3d = model.state_dict()
-    for k in state_dict.keys():
-        if state_dict[k].shape != state_dict_3d[k].shape:
-            if len(state_dict_3d[k].shape) <= 2:
-                logger.info(f'Ignore: {k}')
-                continue
-            logger.info(f'Inflate: {k}, {state_dict[k].shape} => {state_dict_3d[k].shape}')
-            time_dim = state_dict_3d[k].shape[2]
-            state_dict[k] = inflate_weight(state_dict[k], time_dim)
     model.load_state_dict(state_dict, strict=False)
 
 
