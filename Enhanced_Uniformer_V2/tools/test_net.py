@@ -21,6 +21,18 @@ from slowfast.datasets import loader
 from slowfast.models import build_model
 from slowfast.utils.meters import AVAMeter, TestMeter
 
+import csv
+import os
+
+
+# CSV file path
+prediction_csv_path = "C:/Users/sherm/OneDrive/Documents/AY24_25/msc_project/code-test/dataset/VioGuard/video_predictions.csv"
+
+# Initialize CSV with headers (do this once before calling perform_test)
+with open(prediction_csv_path, mode="w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["video_index", "predicted_class", "true_class", "confidence"])
+
 logger = logging.get_logger(__name__)
 
 
@@ -110,6 +122,15 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
                 video_idx = video_idx.cpu()
 
             test_meter.iter_toc()
+
+            with open(prediction_csv_path, mode="a", newline="") as f:
+                writer = csv.writer(f)
+                for i in range(preds.shape[0]):
+                    pred_class = preds[i].argmax().item()
+                    true_class = labels[i].item()
+                    confidence = preds[i].max().item()
+                    video_id = video_idx[i].item()
+                    writer.writerow([video_id, pred_class, true_class, confidence])
             # Update and log stats.
             test_meter.update_stats(
                 preds.detach(), labels.detach(), video_idx.detach()
@@ -205,6 +226,7 @@ def test(cfg):
 
     # # Perform multi-view test on the entire dataset.
     test_meter = perform_test(test_loader, model, test_meter, cfg, writer)
+    print("AFTER TESTS METER????? IDEK")
     if writer is not None:
         writer.close()
 
@@ -219,4 +241,5 @@ def test(cfg):
             'video_labels': test_meter.video_labels.cpu().numpy()
         }
         print("RESULTS:",result)
+        logger.info("RESULTS:",result)
         pickle.dump(result, f)

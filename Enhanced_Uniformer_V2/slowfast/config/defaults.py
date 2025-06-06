@@ -635,7 +635,7 @@ _C.DATA.PATH_TO_DATA_DIR_LIST = [""]
 _C.DATA.PATH_LABEL_SEPARATOR = " "
 
 # Video path prefix if any.
-_C.DATA.PATH_PREFIX = "dataset/"
+_C.DATA.PATH_PREFIX = "dataset/VioGuard"
 
 # The list of video path prefix if any.
 _C.DATA.PATH_PREFIX_LIST = [""]
