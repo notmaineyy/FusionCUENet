@@ -4,8 +4,7 @@
 import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-torch.cuda.empty_cache()
-torch.cuda.reset_peak_memory_stats()
+print(device)
 
 import os, sys
 

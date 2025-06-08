@@ -75,7 +75,7 @@ def load_config(args):
     cfg = get_cfg()
     # Load config from cfg.
     if args.cfg_file is not None:
-        cfg.merge_from_file(args.cfg_file)
+        cfg.merge_from_file("/vol/bitbucket/sna21/CUENet/Enhanced_Uniformer_V2/exp/RWF_exp/config.yaml")
     # Load config from command line, overwrite config from opts.
     if args.opts is not None:
         cfg.merge_from_list(args.opts)

@@ -26,7 +26,7 @@ import os
 
 
 # CSV file path
-prediction_csv_path = "C:/Users/sherm/OneDrive/Documents/AY24_25/msc_project/code-test/dataset/VioGuard/video_predictions.csv"
+prediction_csv_path = "/vol/bitbucket/sna21/dataset/VioGuard/video_predictions.csv"
 
 # Initialize CSV with headers (do this once before calling perform_test)
 with open(prediction_csv_path, mode="w", newline="") as f:

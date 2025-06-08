@@ -150,7 +150,7 @@ _C.TEST.DATASET = "kinetics"
 _C.TEST.BATCH_SIZE = 8
 
 # Path to the checkpoint to load the initial weight.
-_C.TEST.CHECKPOINT_FILE_PATH = "best-001.pyth"
+_C.TEST.CHECKPOINT_FILE_PATH = "/vol/bitbucket/sna21/CUENet/best-001.pyth"
 
 # Number of clips to sample from a video uniformly for aggregating the
 # prediction results.
@@ -754,7 +754,7 @@ _C.SOLVER.STEPS = []
 _C.SOLVER.LRS = []
 
 # Maximal number of epochs.
-_C.SOLVER.MAX_EPOCH = 300
+_C.SOLVER.MAX_EPOCH = 3
 
 # Momentum.
 _C.SOLVER.MOMENTUM = 0.9
