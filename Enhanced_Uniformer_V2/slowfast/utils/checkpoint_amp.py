@@ -341,7 +341,7 @@ def load_checkpoint(
     else:
         # Load the checkpoint on CPU to avoid GPU mem spike.
         with g_pathmgr.open(path_to_checkpoint, "rb") as f:
-            checkpoint = torch.load(f, map_location="cpu")
+             checkpoint = torch.load(f, map_location="cpu")
         model_state_dict_3d = (
             model.module.state_dict() if data_parallel else model.state_dict()
         )
@@ -396,8 +396,8 @@ def load_checkpoint(
             # Load the optimizer state (commonly not done when fine-tuning)
         if "epoch" in checkpoint.keys() and not epoch_reset:
             epoch = checkpoint["epoch"]
-            if optimizer:
-                optimizer.load_state_dict(checkpoint["optimizer_state"])
+            #if optimizer:
+                #optimizer.load_state_dict(checkpoint["optimizer_state"])
             if loss_scaler and 'scaler' in checkpoint:
                 loss_scaler.load_state_dict(checkpoint['scaler'])
         else:

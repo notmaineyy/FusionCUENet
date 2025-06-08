@@ -49,7 +49,7 @@ _C.TRAIN.ENABLE = True
 _C.TRAIN.DATASET = "kinetics"
 
 # Total mini-batch size.
-_C.TRAIN.BATCH_SIZE = 64
+_C.TRAIN.BATCH_SIZE = 1
 
 # Evaluate model on test data every eval period epochs.
 _C.TRAIN.EVAL_PERIOD = 10

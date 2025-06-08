@@ -96,6 +96,7 @@ class AVAMeter(object):
 
         eta_sec = self.iter_timer.seconds() * (self.overall_iters - cur_iter)
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
+
         if self.mode == "train":
             stats = {
                 "_type": "{}_iter".format(self.mode),

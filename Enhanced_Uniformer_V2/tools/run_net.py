@@ -4,7 +4,9 @@
 import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Using device:", device)
+torch.cuda.empty_cache()
+torch.cuda.reset_peak_memory_stats()
+
 import os, sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -29,8 +31,8 @@ def main():
     cfg = assert_and_infer_cfg(cfg)
 
     # Perform training.
-    #if cfg.TRAIN.ENABLE:
-    #    launch_job(cfg=cfg, init_method=args.init_method, func=train)
+    if cfg.TRAIN.ENABLE:
+        launch_job(cfg=cfg, init_method=args.init_method, func=train)
 
     # Perform multi-clip testing.
     if cfg.TEST.ENABLE:
