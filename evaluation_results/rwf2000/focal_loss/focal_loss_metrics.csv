@@ -1,0 +1,2 @@
+model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
+focal_loss,0.8,0.8051571559353067,0.8,0.7991514147272225,0.7654867256637168,0.865,0.812206572769953,0.8448275862068966,0.735,0.786096256684492,0.57805

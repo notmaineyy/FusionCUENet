@@ -22,9 +22,9 @@ _MODELS = {
     "ViT-L/14_336": os.path.join(MODEL_PATH, "vit_l14_336.pth"),
 }
  """
-_MODELS = {"ViT-B/16": "/vol/bitbucket/sna21/CUENet/best-001.pyth",
-    "ViT-L/14": "/vol/bitbucket/sna21/CUENet/best-001.pyth",
-    "ViT-L/14_336": "/vol/bitbucket/sna21/CUENet/best-001.pyth"}
+_MODELS = {"ViT-B/16": "/vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth",
+    "ViT-L/14": "/vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth",
+    "ViT-L/14_336": "/vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth"}
 
 
 class LayerNorm(nn.LayerNorm):

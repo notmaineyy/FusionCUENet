@@ -150,7 +150,7 @@ _C.TEST.DATASET = "kinetics"
 _C.TEST.BATCH_SIZE = 8
 
 # Path to the checkpoint to load the initial weight.
-_C.TEST.CHECKPOINT_FILE_PATH = "/vol/bitbucket/sna21/CUENet/best-001.pyth"
+_C.TEST.CHECKPOINT_FILE_PATH = "/vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth"
 
 # Number of clips to sample from a video uniformly for aggregating the
 # prediction results.
@@ -623,7 +623,7 @@ _C.SLOWFAST.FUSION_KERNEL_SZ = 5
 _C.DATA = CfgNode()
 
 # The path to the data directory.
-_C.DATA.PATH_TO_DATA_DIR = "dataset/"
+_C.DATA.PATH_TO_DATA_DIR = "/vol/bitbucket/sna21/dataset/"
 
 # The path to the extra data directory.
 _C.DATA.EXTRA_PATH_TO_DATA_DIR = ""
@@ -635,7 +635,7 @@ _C.DATA.PATH_TO_DATA_DIR_LIST = [""]
 _C.DATA.PATH_LABEL_SEPARATOR = " "
 
 # Video path prefix if any.
-_C.DATA.PATH_PREFIX = "dataset/VioGuard"
+_C.DATA.PATH_PREFIX = "/vol/bitbucket/sna21/dataset/RLVS"
 
 # The list of video path prefix if any.
 _C.DATA.PATH_PREFIX_LIST = [""]
@@ -733,7 +733,7 @@ _C.DATA.MC = False
 _C.SOLVER = CfgNode()
 
 # Base learning rate.
-_C.SOLVER.BASE_LR = 0.1
+_C.SOLVER.BASE_LR = 0.001
 
 # Learning rate policy (see utils/lr_policy.py for options and examples).
 _C.SOLVER.LR_POLICY = "cosine"
@@ -754,7 +754,7 @@ _C.SOLVER.STEPS = []
 _C.SOLVER.LRS = []
 
 # Maximal number of epochs.
-_C.SOLVER.MAX_EPOCH = 3
+_C.SOLVER.MAX_EPOCH = 100
 
 # Momentum.
 _C.SOLVER.MOMENTUM = 0.9
@@ -790,7 +790,7 @@ _C.SOLVER.COSINE_AFTER_WARMUP = False
 _C.SOLVER.ZERO_WD_1D_PARAM = False
 
 # gradient norm clipping.
-_C.SOLVER.CLIP_GRADIENT = 20
+_C.SOLVER.CLIP_GRADIENT = 1.0 #20
 
 # backbone lr ratio.
 _C.SOLVER.BACKBONE_LR_RATIO = 0.1
@@ -851,7 +851,7 @@ _C.BENCHMARK.SHUFFLE = True
 _C.DATA_LOADER = CfgNode()
 
 # Number of data loader workers per training process.
-_C.DATA_LOADER.NUM_WORKERS = 8
+_C.DATA_LOADER.NUM_WORKERS = 6
 
 # Load data to pinned host memory.
 _C.DATA_LOADER.PIN_MEMORY = True

@@ -91,8 +91,9 @@ def train_epoch(
             else:
                 preds = model(inputs)
             # Explicitly declare reduction to mean.
-            loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
 
+
+            loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
             # Compute the loss.
             loss = loss_fun(preds, labels)
 
@@ -104,6 +105,13 @@ def train_epoch(
         # scaler => backward and step
         is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
         loss_scaler(loss, optimizer, clip_grad=cfg.SOLVER.CLIP_GRADIENT, parameters=model.parameters(), create_graph=is_second_order)
+        # Add gradient norm logging
+        total_norm = 0
+        for p in model.parameters():
+            if p.grad is not None:
+                param_norm = p.grad.detach().data.norm(2)
+                total_norm += param_norm.item() ** 2
+        total_norm = total_norm ** 0.5
 
         if cfg.NUM_GPUS:
             torch.cuda.empty_cache()
@@ -141,10 +149,18 @@ def train_epoch(
                 loss = loss.item()
             else:
                 # Compute the errors.
-                num_topks_correct = metrics.topks_correct(preds, labels, (1, 2))
-                top1_err, top2_err = [
-                    (1.0 - x / preds.size(0)) * 100.0 for x in num_topks_correct
-                ]
+                # Remove top-2 error calculations
+
+                # Calculate binary accuracy
+                #pred_probs = torch.sigmoid(preds)
+                #binary_preds = torch.argmax(pred_probs, dim=1)
+
+                preds_class = preds.argmax(dim=1)  # Directly use argmax on logits
+                correct = (preds_class == labels).sum().item()
+
+                #correct = (binary_preds == labels).sum().item()
+                accuracy = 100.0 * correct / labels.size(0)
+
                 # Gather all the predictions across all the devices.
                 if cfg.NUM_GPUS > 1:
                     loss, top1_err, top2_err = du.all_reduce(
@@ -152,16 +168,14 @@ def train_epoch(
                     )
 
                 # Copy the stats from GPU to CPU (sync point).
-                loss, top1_err, top2_err = (
+                loss, accuracy = (
                     loss.item(),
-                    top1_err.item(),
-                    top2_err.item(),
+                    accuracy,
                 )
 
             # Update and log stats.
             train_meter.update_stats(
-                top1_err,
-                top2_err,
+                accuracy,
                 loss,
                 lr,
                 inputs[0].size(0)
@@ -175,8 +189,7 @@ def train_epoch(
                     {
                         "Train/loss": loss,
                         "Train/lr": lr,
-                        "Train/Top1_err": top1_err,
-                        "Train/top2_err": top2_err,
+                        "Train/accuracy": accuracy,
                     },
                     global_step=data_size * cur_epoch + cur_iter,
                 )
@@ -187,7 +200,6 @@ def train_epoch(
 
     # Log epoch stats.
     train_meter.log_epoch_stats(cur_epoch)
-    print("??????????")
     train_meter.reset()
 
 
@@ -339,6 +351,7 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
     # New: Initialize variables to track loss and correct predictions
     total_loss = 0.0
     total_samples = 0
+    total_accuracy = 0.0
     correct_top1 = 0
     correct_top2 = 0
 
@@ -382,43 +395,30 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
         else:
             preds = model(inputs)
             
-            # NEW: Calculate loss
             loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
             loss = loss_fun(preds, labels)
             total_loss += loss.item() * inputs[0].size(0)
             total_samples += inputs[0].size(0)
-            
-            # NEW: Calculate accuracy
-            if not cfg.DATA.MULTI_LABEL:
-                _, predicted = torch.max(preds.data, 1)
-                correct_top1 += (predicted == labels).sum().item()
-                
-                # For top-2 accuracy
-                _, top2_predicted = torch.topk(preds, 2, dim=1)
-                correct_top2 += top2_predicted.eq(labels.view(-1, 1)).sum().item()
+        
 
             if cfg.DATA.MULTI_LABEL:
                 if cfg.NUM_GPUS > 1:
                     preds, labels = du.all_gather([preds, labels])
             else:
                 # Compute the errors.
-                num_topks_correct = metrics.topks_correct(preds, labels, (1, 2))
+                # Remove top-2 error calculations
+                preds_class = preds.argmax(dim=1)  # Directly use argmax on logits
+                correct = (preds_class == labels).sum().item()
+                accuracy = 100.0 * correct / labels.size(0)
+                total_accuracy += accuracy * inputs[0].size(0)
 
-                # Combine the errors across the GPUs.
-                top1_err, top2_err = [
-                    (1.0 - x / preds.size(0)) * 100.0 for x in num_topks_correct
-                ]
                 if cfg.NUM_GPUS > 1:
                     top1_err, top2_err = du.all_reduce([top1_err, top2_err])
-
-                # Copy the errors from GPU to CPU (sync point).
-                top1_err, top2_err = top1_err.item(), top2_err.item()
 
                 val_meter.iter_toc()
                 # Update and log stats.
                 val_meter.update_stats(
-                    top1_err,
-                    top2_err,
+                    accuracy,
                     inputs[0].size(0)
                     * max(
                         cfg.NUM_GPUS, 1
@@ -427,7 +427,7 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
                 # write to tensorboard format if available.
                 if writer is not None:
                     writer.add_scalars(
-                        {"Val/Top1_err": top1_err, "Val/Top2_err": top2_err},
+                        {"Val/Accuracy": accuracy},
                         global_step=len(val_loader) * cur_epoch + cur_iter,
                     )
 
@@ -445,11 +445,10 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
     
     # NEW: Calculate and log additional metrics
     avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
-    top1_acc = 100.0 * correct_top1 / total_samples if total_samples > 0 else 0.0
-    top2_acc = 100.0 * correct_top2 / total_samples if total_samples > 0 else 0.0
+    acc = total_accuracy / total_samples if total_samples > 0 else 0.0
     
     logger.info(f"Val results: Loss={avg_loss:.4f}, "
-                f"Top1={top1_acc:.2f}%, top2={top2_acc:.2f}%, "
+                f"Accuracy={acc:.4f}%, "
                 f"Samples={total_samples}")
     
     # NEW: Log comprehensive JSON stats
@@ -457,13 +456,8 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
         "_type": "val_epoch",
         "epoch": f"{cur_epoch + 1}/{cfg.SOLVER.MAX_EPOCH}",
         "loss": f"{avg_loss:.4f}",
-        "top1_acc": f"{top1_acc:.2f}",
-        "top2_acc": f"{top2_acc:.2f}",
-        "top1_err": f"{100 - top1_acc:.2f}",
-        "top2_err": f"{100 - top2_acc:.2f}",
+        "accuracy": f"{acc:.4f}%",
         "gpu_mem": f"{torch.cuda.max_memory_allocated() / 1024 ** 3:.2f}G",
-        "min_top1_err": val_meter.min_top1_err if hasattr(val_meter, 'min_top1_err') else 0.0,
-        "min_top2_err": val_meter.min_top2_err if hasattr(val_meter, 'min_top2_err') else 0.0,
         "samples": total_samples,
         "time_diff": 0.00014  # You might want to calculate actual time difference
     }
@@ -646,7 +640,7 @@ def train(cfg):
     logger.info("Start epoch: {}".format(start_epoch + 1))
 
     epoch_timer = EpochTimer()
-    for cur_epoch in range(start_epoch, cfg.SOLVER.MAX_EPOCH+start_epoch):
+    for cur_epoch in range(start_epoch, cfg.SOLVER.MAX_EPOCH):
         if cfg.MULTIGRID.LONG_CYCLE:
             cfg, changed = multigrid.update_long_cycle(cfg, cur_epoch)
             if changed:
