@@ -1,11 +1,11 @@
 TRAIN:
-  ENABLE: True
+  ENABLE: False
   DATASET: kinetics_sparse
-  BATCH_SIZE: 1
+  BATCH_SIZE: 16
   EVAL_PERIOD: 1
-  CHECKPOINT_PERIOD: 2
+  CHECKPOINT_PERIOD: 1
   AUTO_RESUME: True
-  CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/CUENet/best-001.pyth
+  CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth
 DATA:
   USE_OFFSET_SAMPLING: True
   DECODING_BACKEND: decord
@@ -15,7 +15,7 @@ DATA:
   TRAIN_CROP_SIZE: 192  # Instead of 224
   TEST_CROP_SIZE: 256   # Instead of 336
   INPUT_CHANNEL_NUM: [3]
-  PATH_TO_DATA_DIR: ./dataset/VioGuard
+  PATH_TO_DATA_DIR: /vol/bitbucket/sna21/dataset/RLVS
   TRAIN_JITTER_SCALES_RELATIVE: [0.08, 1.0]
   TRAIN_JITTER_ASPECT_RELATIVE: [0.75, 1.3333]
 UNIFORMERV2:
@@ -36,18 +36,17 @@ MODEL:
   NUM_CLASSES: 2
   ARCH: uniformerv2
   MODEL_NAME: Uniformerv2
-  LOSS_FUNC: cross_entropy
+  LOSS_FUNC: focal_tversky_loss
   DROPOUT_RATE: 0.5
   USE_CHECKPOINT: True
   CHECKPOINT_NUM: [24]
 TEST:
-  ENABLE: False
+  ENABLE: True
   DATASET: kinetics_sparse
   BATCH_SIZE: 1
   NUM_SPATIAL_CROPS: 1
   NUM_ENSEMBLE_VIEWS: 1
-  CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/CUENet/best-001.pyth
-NUM_GPUS: 1
+  CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/checkpoints/focal_tvr_from_pretrained/checkpoints/checkpoint_epoch_00090.pyth
 NUM_SHARDS: 1
 RNG_SEED: 0
-OUTPUT_DIR: .
+OUTPUT_DIR: /vol/bitbucket/sna21/checkpoints/focal_tvr_from_pretrained/
