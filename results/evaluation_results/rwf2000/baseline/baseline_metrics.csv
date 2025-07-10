@@ -1,2 +1,2 @@
 model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
-baseline,0.685,0.6944094157208911,0.685,0.6811418159732767,0.7371794871794872,0.575,0.6460674157303371,0.6516393442622951,0.795,0.7162162162162162,0.62415
+baseline,0.92,0.92,0.92,0.92,0.92,0.92,0.92,0.92,0.92,0.92,0.4625375

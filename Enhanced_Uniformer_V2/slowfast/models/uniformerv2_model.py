@@ -2,7 +2,7 @@
 import os
 from collections import OrderedDict
 
-from timm.layers import DropPath
+from timm.models.layers import DropPath
 import torch
 from torch import nn
 from torch.nn import MultiheadAttention
@@ -15,16 +15,12 @@ import slowfast.utils.logging as logging
 logger = logging.get_logger(__name__)
 
 
-""" MODEL_PATH = '/data/DERI-AVA/code_dirs/UniFormerV2/model_chkpts'
+MODEL_PATH = '/vol/bitbucket/sna21/checkpoints/extract'
 _MODELS = {
     "ViT-B/16": os.path.join(MODEL_PATH, "vit_b16.pth"),
     "ViT-L/14": os.path.join(MODEL_PATH, "vit_l14.pth"),
     "ViT-L/14_336": os.path.join(MODEL_PATH, "vit_l14_336.pth"),
 }
- """
-_MODELS = {"ViT-B/16": "/vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth",
-    "ViT-L/14": "/vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth",
-    "ViT-L/14_336": "/vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth"}
 
 
 class LayerNorm(nn.LayerNorm):
@@ -371,7 +367,7 @@ class Transformer(nn.Module):
         x = x.permute(1, 0, 2)  # NLD -> LND
         out = self.transformer(x)
         return out """
-
+    
 class VisionTransformer(nn.Module):
     def __init__(
         self, 
@@ -381,14 +377,15 @@ class VisionTransformer(nn.Module):
         no_lmhra=False, double_lmhra=True, return_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         n_layers=12, n_dim=768, n_head=12, mlp_factor=4.0, drop_path_rate=0.,
         mlp_dropout=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5], 
-        cls_dropout=0.5, num_classes=400, frozen=False
+        cls_dropout=0.5, num_classes=400,
+        frozen=False
     ):
         super().__init__()
         self.input_resolution = input_resolution
-        self.patch_size = patch_size  # STORE PATCH SIZE AS INSTANCE VARIABLE
+        self.patch_size = patch_size
         self.output_dim = output_dim
-        
         padding = (kernel_size - 1) // 2
+        
         if temporal_downsample:
             self.conv1 = nn.Conv3d(3, width, (kernel_size, patch_size, patch_size), (2, patch_size, patch_size), (padding, 0, 0), bias=False)
             t_size = t_size // 2
@@ -398,13 +395,9 @@ class VisionTransformer(nn.Module):
         scale = width ** -0.5
         self.class_embedding = nn.Parameter(scale * torch.randn(width))
         self.positional_embedding = nn.Parameter(scale * torch.randn((input_resolution // patch_size) ** 2 + 1, width))
-        
-        # Store original positional embedding AFTER it's created
-        self.orig_pos_embed = self.positional_embedding
-        self.orig_resolution = input_resolution
-        
+        self.orig_grid_size = input_resolution // patch_size  # Store original grid size
         self.ln_pre = LayerNorm(width)
-        
+
         self.transformer = Transformer(
             width, layers, heads, dw_reduction=dw_reduction, 
             backbone_drop_path_rate=backbone_drop_path_rate, 
@@ -416,49 +409,44 @@ class VisionTransformer(nn.Module):
             frozen=frozen,
         )
 
-    def interpolate_pos_encoding(self, x, w, h):
-        # Use stored patch_size
-        orig_size = self.orig_resolution // self.patch_size
-        
-        if w == h and w == orig_size:
+    def interpolate_pos_embedding(self, h, w):
+        """Interpolate positional embedding to match current spatial dimensions"""
+        if h == self.orig_grid_size and w == self.orig_grid_size:
             return self.positional_embedding
+
+        class_pos_embed = self.positional_embedding[:1]
+        spatial_pos_embed = self.positional_embedding[1:]
         
-        class_pos_embed = self.orig_pos_embed[:1]
-        spatial_pos_embed = self.orig_pos_embed[1:]
-        dim = x.shape[-1]
+        # Reshape to 2D grid and interpolate
+        spatial_pos_embed = spatial_pos_embed.reshape(
+            1, self.orig_grid_size, self.orig_grid_size, -1
+        ).permute(0, 3, 1, 2)
         
-        # Calculate original spatial size
-        orig_spatial_size = int((spatial_pos_embed.shape[0])**0.5)
-        spatial_pos_embed = spatial_pos_embed.reshape(1, orig_spatial_size, orig_spatial_size, dim).permute(0, 3, 1, 2)
-        
-        new_spatial_pos_embed = F.interpolate(
+        spatial_pos_embed = F.interpolate(
             spatial_pos_embed,
             size=(h, w),
             mode='bicubic',
             align_corners=False
         )
-        new_spatial_pos_embed = new_spatial_pos_embed.permute(0, 2, 3, 1).reshape(1, h * w, dim)[0]
-        return torch.cat([class_pos_embed, new_spatial_pos_embed], dim=0).to(x.dtype)
+        
+        spatial_pos_embed = spatial_pos_embed.permute(0, 2, 3, 1).reshape(h * w, -1)
+        return torch.cat([class_pos_embed, spatial_pos_embed], dim=0)
 
     def forward(self, x):
         x = self.conv1(x)
         N, C, T, H, W = x.shape
         
-        # Calculate spatial dimensions
-        w = W
-        h = H
+        # Interpolate positional embedding
+        pos_embed = self.interpolate_pos_embedding(H, W).to(x.dtype)
         
-        x = x.permute(0, 2, 3, 4, 1).reshape(N * T, h * w, C)
+        x = x.permute(0, 2, 3, 4, 1).reshape(N * T, H * W, C)
         x = torch.cat([
             self.class_embedding.to(x.dtype) + 
             torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device), 
             x
         ], dim=1)
         
-        # Interpolate positional embedding
-        pos_embed = self.interpolate_pos_encoding(x, w, h)
-        x = x + pos_embed
-        
+        x = x + pos_embed.to(x.device)  # Add interpolated positional embedding
         x = self.ln_pre(x)
         x = x.permute(1, 0, 2)
         out = self.transformer(x)
@@ -480,6 +468,14 @@ def inflate_weight(weight_2d, time_dim, center=True):
 
 def load_state_dict(model, state_dict):
     state_dict_3d = model.state_dict()
+    for k in state_dict.keys():
+        if state_dict[k].shape != state_dict_3d[k].shape:
+            if len(state_dict_3d[k].shape) <= 2:
+                logger.info(f'Ignore: {k}')
+                continue
+            logger.info(f'Inflate: {k}, {state_dict[k].shape} => {state_dict_3d[k].shape}')
+            time_dim = state_dict_3d[k].shape[2]
+            state_dict[k] = inflate_weight(state_dict[k], time_dim)
     model.load_state_dict(state_dict, strict=False)
 
 
@@ -540,7 +536,7 @@ def uniformerv2_l14(
     frozen=False,
 ):
     model = VisionTransformer(
-        input_resolution=224,  # FIXED: Changed from 257 to 224
+        input_resolution=224,
         patch_size=14,
         width=1024,
         layers=24,

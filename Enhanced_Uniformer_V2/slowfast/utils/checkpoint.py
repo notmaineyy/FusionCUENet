@@ -15,8 +15,35 @@ from iopath.common.file_io import g_pathmgr
 import slowfast.utils.distributed as du
 import slowfast.utils.logging as logging
 from slowfast.utils.c2_model_loading import get_name_convert_func
+import torch.nn.functional as F
 
 logger = logging.get_logger(__name__)
+
+def interpolate_pos_embed(pretrained_pos_embed, model_pos_embed):
+    # Separate the class token
+    cls_token = pretrained_pos_embed[:1]           # [1, 1024]
+    posemb = pretrained_pos_embed[1:]              # [576, 1024]
+
+    # Compute old and new spatial sizes
+    num_patches_old = posemb.shape[0]              # 576
+    num_patches_new = model_pos_embed.shape[0] - 1 # 256
+
+    size_old = int(num_patches_old ** 0.5)         # 24
+    size_new = int(num_patches_new ** 0.5)         # 16
+
+    # Reshape for interpolation: [1, 1024, H, W]
+    posemb = posemb.reshape(1, size_old, size_old, -1).permute(0, 3, 1, 2)
+
+    # Interpolate
+    posemb_resized = F.interpolate(posemb, size=(size_new, size_new), mode='bicubic', align_corners=False)
+
+    # Reshape back to [256, 1024]
+    posemb_resized = posemb_resized.permute(0, 2, 3, 1).reshape(-1, 1024)
+
+    # Concatenate class token back
+    new_pos_embed = torch.cat([cls_token, posemb_resized], dim=0)
+
+    return new_pos_embed
 
 
 def make_checkpoint_dir(path_to_job):
@@ -336,7 +363,12 @@ def load_checkpoint(
                     model_state = model_state_dict_new
 
             pre_train_dict = model_state
+            print([k for k in pre_train_dict.keys()])
             model_dict = ms.state_dict()
+            pre_train_dict['backbone.positional_embedding'] = interpolate_pos_embed(
+                pre_train_dict['backbone.positional_embedding'],
+                model_dict['backbone.positional_embedding']
+            )
             # Match pre-trained weights that have same shape as current model.
             pre_train_dict_match = {
                 k: v
@@ -349,13 +381,19 @@ def load_checkpoint(
                 for k in model_dict.keys()
                 if k not in pre_train_dict_match.keys()
             ]
+
+            
             # Log weights that are not loaded with the pre-trained weights.
+            print("Checkpoint shape:", pre_train_dict['backbone.positional_embedding'].shape)
+            print("Model shape     :", model_dict['backbone.positional_embedding'].shape)
+
             if not_load_layers:
                 for k in not_load_layers:
                     logger.info("Network weights {} not loaded.".format(k))
             # Load pre-trained weights.
             logger.info('Load strict==True')
-            ms.load_state_dict(pre_train_dict_match, strict=False) #changed this to False
+            msg=ms.load_state_dict(pre_train_dict_match, strict=True) #changed this to False
+            print(msg)
             epoch = -1
 
             # Load the optimizer state (commonly not done when fine-tuning)
