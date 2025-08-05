@@ -35,6 +35,32 @@ with open(prediction_csv_path, mode="w", newline="") as f:
 
 logger = logging.get_logger(__name__)
 
+def extract_pose_from_clip(frames_tchw):
+    """
+    frames_tchw : torch.Tensor (T, C, H, W)  -- already on CPU
+    Returns      : np.ndarray (T, J, 2)      -- x,y in [0,1] range
+    """
+    # (T, C, H, W) ➜ (T, H, W, C) ➜ uint8
+    frames = (
+        frames_tchw.permute(0, 2, 3, 1)      # T,H,W,C
+                 .mul(255)
+                 .byte()
+                 .cpu()
+                 .numpy()
+    )
+
+    T = frames.shape[0]
+    kp = np.zeros((T, NUM_JOINTS, 2), dtype=np.float32)   # default all‑zero
+
+    for t, frame in enumerate(frames):
+        results = mp_pose.process(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+        if results.pose_landmarks:
+            for j, lm in enumerate(results.pose_landmarks.landmark):
+                kp[t, j, 0] = lm.x      # already normalised
+                kp[t, j, 1] = lm.y
+
+    return kp
+
 
 @torch.no_grad()
 def perform_test(test_loader, model, test_meter, cfg, writer=None):
@@ -65,10 +91,28 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
         if cfg.NUM_GPUS:
             # Transfer the data to the current GPU device.
             if isinstance(inputs, (list,)):
-                for i in range(len(inputs)):
-                    inputs[i] = inputs[i].cuda(non_blocking=True)
+                # -------------------------------------------------------------
+                # inputs is a tuple (frames, pose_tensor) coming from __getitem__
+                #   frames:  Tensor [B, C, T, H, W]   (UniFormerV2 expects this)
+                #   pose  :  Tensor [B, T, J, D]
+                # -------------------------------------------------------------
+                #video_tensor, pose_tensor = inputs        # unpack once — no loop
+                frames, input_ids, attention_mask = inputs
+                if isinstance(frames, list):
+                    frames = torch.stack(frames, dim=1)
+
+                # Move pose tensor to GPU
+                frames = frames.cuda(non_blocking=True)
+                #pose_tensor  = pose_tensor.cuda(non_blocking=True)   # (16, T, J, D)
+                input_ids = input_ids.cuda(non_blocking=True)
+                attention_mask = attention_mask.cuda(non_blocking=True)
             else:
                 inputs = inputs.cuda(non_blocking=True)
+
+            """ if isinstance(inputs, (list,)):
+                for i in range(len(inputs)):
+                    inputs[i] = inputs[i].cuda(non_blocking=True) """
+            
 
             # Transfer the data to the current GPU device.
             labels = labels.cuda()
@@ -107,9 +151,13 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
         else:
             # Perform the forward pass.
             if cfg.TEST.ADD_SOFTMAX:
-                preds = model(inputs).softmax(-1)
+                #preds = model(video_tensor, pose_tensor).softmax(-1)
+                preds = model(frames, input_ids, attention_mask).softmax(-1)
+                #preds = model(inputs).softmax(-1)
             else:
-                preds = model(inputs)
+                #preds = model(video_tensor, pose_tensor)
+                preds = model(frames, input_ids, attention_mask)
+                #preds = model(inputs)
 
             # Gather all the predictions across all the devices to perform ensemble.
             if cfg.NUM_GPUS > 1:

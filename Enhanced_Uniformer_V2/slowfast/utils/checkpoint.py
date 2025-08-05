@@ -365,10 +365,17 @@ def load_checkpoint(
             pre_train_dict = model_state
             print([k for k in pre_train_dict.keys()])
             model_dict = ms.state_dict()
-            pre_train_dict['backbone.positional_embedding'] = interpolate_pos_embed(
-                pre_train_dict['backbone.positional_embedding'],
-                model_dict['backbone.positional_embedding']
-            )
+            if "rgb_encoder.positional_embedding" in pre_train_dict.keys():
+                # Interpolate the positional embedding if it exists in the pre-trained model.
+                pre_train_dict['rgb_encoder.positional_embedding'] = interpolate_pos_embed(
+                    pre_train_dict['rgb_encoder.positional_embedding'],
+                    model_dict['rgb_encoder.positional_embedding']
+                )
+            if 'backbone.positional_embedding' in pre_train_dict.keys():
+                pre_train_dict['backbone.positional_embedding'] = interpolate_pos_embed(
+                    pre_train_dict['backbone.positional_embedding'],
+                    model_dict['backbone.positional_embedding']
+                )
             # Match pre-trained weights that have same shape as current model.
             pre_train_dict_match = {
                 k: v
@@ -381,11 +388,6 @@ def load_checkpoint(
                 for k in model_dict.keys()
                 if k not in pre_train_dict_match.keys()
             ]
-
-            
-            # Log weights that are not loaded with the pre-trained weights.
-            print("Checkpoint shape:", pre_train_dict['backbone.positional_embedding'].shape)
-            print("Model shape     :", model_dict['backbone.positional_embedding'].shape)
 
             if not_load_layers:
                 for k in not_load_layers:

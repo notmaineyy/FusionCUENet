@@ -635,7 +635,7 @@ _C.DATA.PATH_TO_DATA_DIR_LIST = [""]
 _C.DATA.PATH_LABEL_SEPARATOR = " "
 
 # Video path prefix if any.
-_C.DATA.PATH_PREFIX = "/vol/bitbucket/sna21/dataset/RLVS"
+_C.DATA.PATH_PREFIX = "/vol/bitbucket/sna21/dataset/VioGuard"
 
 # The list of video path prefix if any.
 _C.DATA.PATH_PREFIX_LIST = [""]
@@ -754,7 +754,7 @@ _C.SOLVER.STEPS = []
 _C.SOLVER.LRS = []
 
 # Maximal number of epochs.
-_C.SOLVER.MAX_EPOCH = 100
+_C.SOLVER.MAX_EPOCH = 215
 
 # Momentum.
 _C.SOLVER.MOMENTUM = 0.9

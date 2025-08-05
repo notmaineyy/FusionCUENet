@@ -13,3 +13,6 @@ from .ptv_model_builder import (
 from .video_model_builder import ResNet, SlowFast  # noqa
 from .uniformer import Uniformer  # noqa
 from .uniformerv2 import Uniformerv2 # noqa
+from .fusion_cuenet import FusionCUENet # noqa
+from .improved_fusion_cuenet import ImprovedFusionCUENet
+from .blip_fusion_cuenet import BlipFusionCUENet # noqa

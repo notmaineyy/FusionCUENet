@@ -11,3 +11,5 @@ from .ptv_datasets import Ptvcharades, Ptvkinetics, Ptvssv2  # noqa
 from .sth import Sth  # shared for Something-Something V1 and V2
 from .anet import Anet # shared for ActivityNet and HACS
 from .mit import Mit # for Moments in Time
+from .fusion import Fusion_dataset # for Fusion dataset
+from .fusion_blip import Fusion_blip_dataset  # for Fusion dataset with BLIP captions

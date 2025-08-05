@@ -118,6 +118,63 @@ class CE_TLoss(nn.Module):
         ce_loss = self.cross_entropy_loss(inputs, targets)
         return t_loss + ce_loss
 
+class dynamic_CE_TLoss(nn.Module):
+    def __init__(self, num_classes=2, init_alpha=0.5, init_lambda=0.5, beta=0.25, smooth=1e-5, reduction='mean'):
+        super().__init__()
+        self.beta = beta
+        self.smooth = smooth
+        self.reduction = reduction
+        self.cross_entropy_loss = nn.CrossEntropyLoss(reduction=reduction)
+
+        # Learnable λ for loss weighting (sigmoid to [0,1])
+        self.lambda_logit = nn.Parameter(torch.tensor(float(init_lambda)).logit())
+
+        # Learnable α for each class (sigmoid to [0,1])
+        self.alpha_logits = nn.Parameter(torch.full((num_classes,), float(init_alpha)).logit())
+
+        self.num_classes = num_classes
+
+    def forward(self, inputs, targets):
+        """
+        inputs: (B, C)
+        targets: (B,)
+        """
+        ce_loss = self.cross_entropy_loss(inputs, targets)
+
+        # Convert logits to usable [0, 1] values
+        lambda_val = torch.sigmoid(self.lambda_logit)
+        alpha_vals = torch.sigmoid(self.alpha_logits)  # (C,)
+        targets = targets.to(alpha_vals.device)        # ✅ Fix device mismatch
+        alpha = alpha_vals[targets]                    # (B,)
+
+
+        # Prepare per-sample alpha
+        if inputs.dim() == 2:
+            # Classification shape: (B, C), targets: (B,)
+            alpha = alpha_vals[targets]  # (B,)
+        else:
+            raise ValueError("Unsupported input shape for CE_TLoss")
+
+        # Compute Tversky Loss manually with dynamic alpha
+        probs = torch.softmax(inputs, dim=1)
+        true_1_hot = torch.nn.functional.one_hot(targets, num_classes=self.num_classes).float().to(inputs.device)
+
+        # TP, FP, FN
+        dims = list(range(1, true_1_hot.dim()))
+        TP = (probs * true_1_hot).sum(dim=dims)
+        FP = (probs * (1 - true_1_hot)).sum(dim=dims)
+        FN = ((1 - probs) * true_1_hot).sum(dim=dims)
+
+        # alpha: penalty for FN (higher → more recall emphasis)
+        alpha = alpha.to(inputs.device)
+        T_loss = (TP + self.smooth) / (TP + alpha * FN + self.beta * FP + self.smooth)
+        tversky_loss = 1 - T_loss.mean()
+
+        # Final combined loss
+        total_loss = lambda_val * ce_loss + (1 - lambda_val) * tversky_loss
+        return total_loss
+
+
 class CE_FocalLoss(nn.Module):
     """Combined Cross Entropy and Focal Loss"""
     def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
@@ -240,6 +297,7 @@ _LOSSES = {
     "cross_entropy_tversky_loss": CE_TLoss,
     "cross_entropy_focal_loss": CE_FocalLoss,
     "focal_tversky_loss": Focal_TverskyLoss,
+    "dynamic_ce_tloss": dynamic_CE_TLoss,
 }
 
 

@@ -25,11 +25,22 @@ from slowfast.utils.multigrid import MultigridSchedule
 
 logger = logging.get_logger(__name__)
 
+def move_to_device(x, device):
+    if isinstance(x, torch.Tensor):
+        return x.to(device, non_blocking=True)
+    elif isinstance(x, list):
+        return [move_to_device(i, device) for i in x]
+    elif isinstance(x, tuple):
+        return tuple(move_to_device(i, device) for i in x)
+    elif isinstance(x, dict):
+        return {k: move_to_device(v, device) for k, v in x.items()}
+    return x
 
-def train_epoch(
+
+""" def train_epoch(
     train_loader, model, optimizer, loss_scaler, train_meter, cur_epoch, cfg, writer=None
 ):
-    """
+    
     Perform the video training for one epoch.
     Args:
         train_loader (loader): video training loader.
@@ -43,7 +54,7 @@ def train_epoch(
             slowfast/config/defaults.py
         writer (TensorboardWriter, optional): TensorboardWriter object
             to writer Tensorboard log.
-    """
+    
     # Enable train mode.
     model.train()
     train_meter.iter_tic()
@@ -63,8 +74,33 @@ def train_epoch(
         # Transfer the data to the current GPU device.
         if cfg.NUM_GPUS:
             if isinstance(inputs, (list,)):
-                for i in range(len(inputs)):
-                    inputs[i] = inputs[i].cuda(non_blocking=True)
+                #for i in range(len(inputs)):
+                    #inputs[i] = inputs[i].cuda(non_blocking=True)
+                # -------------------------------------------------------------
+                # inputs is a tuple (frames, pose_tensor) coming from __getitem__
+                #   frames:  Tensor [B, C, T, H, W]   (UniFormerV2 expects this)
+                #   pose  :  Tensor [B, T, J, D]
+                # -------------------------------------------------------------
+                
+                video_tensor, pose_tensor = inputs
+                if isinstance(video_tensor, list):
+                    video_tensor = torch.stack(video_tensor, dim=1)
+
+                # Move pose tensor to GPU
+                video_tensor = video_tensor.cuda(non_blocking=True)
+                pose_tensor  = pose_tensor.cuda(non_blocking=True)   # (16, T, J, D)
+                labels       = labels.cuda(non_blocking=True)
+
+                # Re‑pack the tuple that the model.forward expects
+                #inputs = (video_tensor, None)  # pose_tensor is not used in this context
+                inputs = (video_tensor, pose_tensor)
+
+
+                for key, val in meta.items():              # (unchanged)
+                    if isinstance(val, list):
+                        meta[key] = [v.cuda(non_blocking=True) for v in val]
+                    else:
+                        meta[key] = val.cuda(non_blocking=True) 
             else:
                 inputs = inputs.cuda(non_blocking=True)
             labels = labels.cuda()
@@ -89,7 +125,8 @@ def train_epoch(
             if cfg.DETECTION.ENABLE:
                 preds = model(inputs, meta["boxes"])
             else:
-                preds = model(inputs)
+                #preds = model(inputs)
+                preds = model(video_tensor, pose_tensor)
             # Explicitly declare reduction to mean.
 
 
@@ -200,7 +237,111 @@ def train_epoch(
 
     # Log epoch stats.
     train_meter.log_epoch_stats(cur_epoch)
+    train_meter.reset() """
+
+def train_epoch(train_loader, model, optimizer, loss_scaler, train_meter, cur_epoch, cfg, writer=None):
+    """
+    Training loop for RGB + BLIP (DistilBERT) fusion.
+    """
+    model.train()
+    train_meter.iter_tic()
+    data_size = len(train_loader)
+
+    # Mixup for RGB only
+    if cfg.MIXUP.ENABLE:
+        mixup_fn = MixUp(
+            mixup_alpha=cfg.MIXUP.ALPHA,
+            cutmix_alpha=cfg.MIXUP.CUTMIX_ALPHA,
+            mix_prob=cfg.MIXUP.PROB,
+            switch_prob=cfg.MIXUP.SWITCH_PROB,
+            label_smoothing=cfg.MIXUP.LABEL_SMOOTH_VALUE,
+            num_classes=cfg.MODEL.NUM_CLASSES,
+        )
+
+    for cur_iter, (inputs, labels, _, meta) in enumerate(train_loader):
+        # Unpack dataset outputs
+        frames, input_ids, attention_mask = inputs
+
+        if isinstance(frames, list):
+            frames = torch.stack(frames, dim=1)
+
+        # Send tensors to GPU
+        frames = frames.cuda(non_blocking=True)
+        input_ids = input_ids.cuda(non_blocking=True)
+        attention_mask = attention_mask.cuda(non_blocking=True)
+        labels = labels.cuda(non_blocking=True)
+
+        # Update meta to GPU
+        for key, val in meta.items():
+            if isinstance(val, list):
+                meta[key] = [v.cuda(non_blocking=True) for v in val]
+            else:
+                meta[key] = val.cuda(non_blocking=True)
+
+        # Learning rate schedule
+        lr = optim.get_epoch_lr(cur_epoch + float(cur_iter) / data_size, cfg)
+        optim.set_lr(optimizer, lr)
+
+        train_meter.data_toc()
+
+        # Apply Mixup on frames only
+        if cfg.MIXUP.ENABLE:
+            frames, labels = mixup_fn(frames, labels)
+
+        # Forward pass with autocast
+        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+            if cfg.DETECTION.ENABLE:
+                preds = model((frames, input_ids, attention_mask), meta["boxes"])
+            else:
+                preds = model(frames, input_ids, attention_mask)
+
+            # Loss
+            loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
+            loss = loss_fun(preds, labels)
+
+        misc.check_nan_losses(loss)
+
+        # Backprop
+        optimizer.zero_grad()
+        is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
+        loss_scaler(
+            loss, optimizer,
+            clip_grad=cfg.SOLVER.CLIP_GRADIENT,
+            parameters=model.parameters(),
+            create_graph=is_second_order
+        )
+
+        # Accuracy (if single-label)
+        if not cfg.DATA.MULTI_LABEL:
+            preds_class = preds.argmax(dim=1)
+            correct = (preds_class == labels).sum().item()
+            accuracy = 100.0 * correct / labels.size(0)
+        else:
+            accuracy = None
+
+        # Reduce loss across GPUs
+        if cfg.NUM_GPUS > 1:
+            [loss] = du.all_reduce([loss])
+        loss = loss.item()
+
+        # Update meter
+        train_meter.update_stats(accuracy, loss, lr, frames[0].size(0) * max(cfg.NUM_GPUS, 1))
+
+        # Logging
+        if writer is not None:
+            writer.add_scalars(
+                {"Train/loss": loss, "Train/lr": lr, "Train/accuracy": accuracy},
+                global_step=data_size * cur_epoch + cur_iter,
+            )
+
+        train_meter.iter_toc()
+        train_meter.log_iter_stats(cur_epoch, cur_iter)
+        train_meter.iter_tic()
+
+    # End of epoch
+    train_meter.log_epoch_stats(cur_epoch)
     train_meter.reset()
+
 
 
 """ @torch.no_grad()
@@ -332,6 +473,129 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
 @torch.no_grad()
 def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer=None):
     """
+    Evaluation loop for RGB + BLIP (DistilBERT) fusion.
+    """
+    model.eval()
+    val_meter.iter_tic()
+    data_size = len(val_loader)
+    total_loss = 0.0
+    total_samples = 0
+    total_accuracy = 0.0
+
+    for cur_iter, (inputs, labels, _, meta) in enumerate(val_loader):
+        # Unpack dataset outputs
+        frames, input_ids, attention_mask = inputs
+
+        if isinstance(inputs, (list,)):
+            #for i in range(len(inputs)):
+                #inputs[i] = inputs[i].cuda(non_blocking=True)
+            
+            # -------------------------------------------------------------
+            # inputs is a tuple (frames, pose_tensor) coming from __getitem__
+            #   frames:  Tensor [B, C, T, H, W]   (UniFormerV2 expects this)
+            #   pose  :  Tensor [B, T, J, D]
+            # -------------------------------------------------------------
+            if isinstance(frames, list):
+                frames = torch.stack(frames, dim=1)
+
+            # Move pose tensor to GPU
+            frames = frames.cuda(non_blocking=True)
+            input_ids = input_ids.cuda(non_blocking=True)
+            attention_mask = attention_mask.cuda(non_blocking=True)
+            labels       = labels.cuda(non_blocking=True)
+
+            inputs = (frames, input_ids, attention_mask)
+
+        # Update meta to GPU
+        for key, val in meta.items():
+            if isinstance(val, list):
+                meta[key] = [v.cuda(non_blocking=True) for v in val]
+            else:
+                meta[key] = val.cuda(non_blocking=True)
+
+        val_meter.data_toc()
+
+        # Forward pass
+        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+            if cfg.DETECTION.ENABLE:
+                preds = model((frames, input_ids, attention_mask), meta["boxes"])
+            else:
+                preds = model(frames, input_ids, attention_mask)
+
+            # Loss
+            loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
+            loss = loss_fun(preds, labels)
+            total_loss += loss.item() * inputs[0].size(0)
+            total_samples += inputs[0].size(0)
+
+            if cfg.DATA.MULTI_LABEL:
+                if cfg.NUM_GPUS > 1:
+                    preds, labels = du.all_gather([preds, labels])
+            else:
+                # Compute the errors.
+                # Remove top-2 error calculations
+                preds_class = preds.argmax(dim=1)  # Directly use argmax on logits
+                correct = (preds_class == labels).sum().item()
+                accuracy = 100.0 * correct / labels.size(0)
+                total_accuracy += accuracy * inputs[0].size(0)
+
+                if cfg.NUM_GPUS > 1:
+                    top1_err, top2_err = du.all_reduce([top1_err, top2_err])
+
+                val_meter.iter_toc()
+                # Update and log stats.
+                val_meter.update_stats(
+                    accuracy,
+                    inputs[0].size(0)
+                    * max(
+                        cfg.NUM_GPUS, 1
+                    ),  # If running  on CPU (cfg.NUM_GPUS == 1), use 1 to represent 1 CPU.
+                )
+                # write to tensorboard format if available.
+                if writer is not None:
+                    writer.add_scalars(
+                        {"Val/Accuracy": accuracy},
+                        global_step=len(val_loader) * cur_epoch + cur_iter,
+                    )
+
+            val_meter.update_predictions(preds, labels)
+
+        val_meter.log_iter_stats(cur_epoch, cur_iter)
+        val_meter.iter_tic()
+
+        # Free memory after each validation batch
+        if cfg.NUM_GPUS:
+            torch.cuda.empty_cache()
+
+    # Log epoch stats.
+    flag = val_meter.log_epoch_stats(cur_epoch)
+    
+    # NEW: Calculate and log additional metrics
+    avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
+    acc = total_accuracy / total_samples if total_samples > 0 else 0.0
+    
+    logger.info(f"Val results: Loss={avg_loss:.4f}, "
+                f"Accuracy={acc:.4f}%, "
+                f"Samples={total_samples}")
+    
+    # NEW: Log comprehensive JSON stats
+    stats = {
+        "_type": "val_epoch",
+        "epoch": f"{cur_epoch + 1}/{cfg.SOLVER.MAX_EPOCH}",
+        "loss": f"{avg_loss:.4f}",
+        "accuracy": f"{acc:.4f}%",
+        "gpu_mem": f"{torch.cuda.max_memory_allocated() / 1024 ** 3:.2f}G",
+        "samples": total_samples,
+        "time_diff": 0.00014  # You might want to calculate actual time difference
+    }
+    logging.log_json_stats(stats)    
+
+    # End of epoch
+    val_meter.log_epoch_stats(cur_epoch)
+    val_meter.reset()
+
+""" def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer=None):
+    
     Evaluate the model on the val set.
     Args:
         val_loader (loader): data loader to provide validation data.
@@ -343,7 +607,7 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
             slowfast/config/defaults.py
         writer (TensorboardWriter, optional): TensorboardWriter object
             to writer Tensorboard log.
-    """
+    
     # Evaluation mode enabled. The running stats would not be updated.
     model.eval()
     val_meter.iter_tic()
@@ -359,8 +623,32 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
         if cfg.NUM_GPUS:
             # Transfer the data to the current GPU device.
             if isinstance(inputs, (list,)):
-                for i in range(len(inputs)):
-                    inputs[i] = inputs[i].cuda(non_blocking=True)
+                #for i in range(len(inputs)):
+                    #inputs[i] = inputs[i].cuda(non_blocking=True)
+                
+                # -------------------------------------------------------------
+                # inputs is a tuple (frames, pose_tensor) coming from __getitem__
+                #   frames:  Tensor [B, C, T, H, W]   (UniFormerV2 expects this)
+                #   pose  :  Tensor [B, T, J, D]
+                # -------------------------------------------------------------
+                
+                video_tensor, pose_tensor = inputs
+                if isinstance(video_tensor, list):
+                    video_tensor = torch.stack(video_tensor, dim=1)
+
+                # Move pose tensor to GPU
+                video_tensor = video_tensor.cuda(non_blocking=True)
+                pose_tensor  = pose_tensor.cuda(non_blocking=True)   # (16, T, J, D)
+                labels       = labels.cuda(non_blocking=True)
+
+                # Re‑pack the tuple that the model.forward expects
+                inputs = (video_tensor, pose_tensor)
+
+                for key, val in meta.items():              # (unchanged)
+                    if isinstance(val, list):
+                        meta[key] = [v.cuda(non_blocking=True) for v in val]
+                    else:
+                        meta[key] = val.cuda(non_blocking=True) 
             else:
                 inputs = inputs.cuda(non_blocking=True)
             labels = labels.cuda()
@@ -370,6 +658,7 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
                         val[i] = val[i].cuda(non_blocking=True)
                 else:
                     meta[key] = val.cuda(non_blocking=True)
+
         val_meter.data_toc()
 
         if cfg.DETECTION.ENABLE:
@@ -393,7 +682,8 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
             val_meter.update_stats(preds, ori_boxes, metadata)
 
         else:
-            preds = model(inputs)
+            #preds = model(inputs)
+            preds = model(video_tensor, pose_tensor)
             
             loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
             loss = loss_fun(preds, labels)
@@ -491,7 +781,7 @@ def eval_epoch(val_loader, model, val_meter, loss_scaler, cur_epoch, cfg, writer
             )
 
     val_meter.reset()
-    return flag
+    return flag """
 
 
 def calculate_and_update_precise_bn(loader, model, num_iters=200, use_gpu=True):
@@ -509,7 +799,8 @@ def calculate_and_update_precise_bn(loader, model, num_iters=200, use_gpu=True):
             if use_gpu:
                 if isinstance(inputs, (list,)):
                     for i in range(len(inputs)):
-                        inputs[i] = inputs[i].cuda(non_blocking=True)
+                        inputs = move_to_device(inputs, torch.device("cuda"))
+                        #inputs[i] = inputs[i].cuda(non_blocking=True)
                 else:
                     inputs = inputs.cuda(non_blocking=True)
             yield inputs
