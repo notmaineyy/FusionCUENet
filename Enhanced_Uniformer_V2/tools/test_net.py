@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-"""Multi-view test a video classification model."""
+"""Multi-view test a video classification model with ablation support."""
 
 import numpy as np
 import os
@@ -24,9 +24,8 @@ from slowfast.utils.meters import AVAMeter, TestMeter
 import csv
 import os
 
-
 # CSV file path
-prediction_csv_path = "/vol/bitbucket/sna21/dataset/VioGuard/video_predictions.csv"
+prediction_csv_path = "/vol/bitbucket/sna21/dataset/predictions/ubi_fights/original_cuenet.csv"
 
 # Initialize CSV with headers (do this once before calling perform_test)
 with open(prediction_csv_path, mode="w", newline="") as f:
@@ -35,86 +34,112 @@ with open(prediction_csv_path, mode="w", newline="") as f:
 
 logger = logging.get_logger(__name__)
 
-def extract_pose_from_clip(frames_tchw):
+
+def extract_modalities_from_inputs(inputs, cfg):
     """
-    frames_tchw : torch.Tensor (T, C, H, W)  -- already on CPU
-    Returns      : np.ndarray (T, J, 2)      -- x,y in [0,1] range
+    Extract different modalities from inputs based on what's available and what's enabled in config.
+    Returns: (video_tensor, pose_tensor, input_ids, attention_mask)
     """
-    # (T, C, H, W) ➜ (T, H, W, C) ➜ uint8
-    frames = (
-        frames_tchw.permute(0, 2, 3, 1)      # T,H,W,C
-                 .mul(255)
-                 .byte()
-                 .cpu()
-                 .numpy()
-    )
+    video_tensor = None
+    pose_tensor = None
+    input_ids = None
+    attention_mask = None
 
-    T = frames.shape[0]
-    kp = np.zeros((T, NUM_JOINTS, 2), dtype=np.float32)   # default all‑zero
-
-    for t, frame in enumerate(frames):
-        results = mp_pose.process(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-        if results.pose_landmarks:
-            for j, lm in enumerate(results.pose_landmarks.landmark):
-                kp[t, j, 0] = lm.x      # already normalised
-                kp[t, j, 1] = lm.y
-
-    return kp
+    print(len(inputs))
+    
+    if isinstance(inputs, (list, tuple)):
+        # Different input formats based on dataset configuration
+        if len(inputs) == 2:
+            # Could be (video, pose) or (video, text_data) or (pose, text_data)
+            if hasattr(cfg.MODEL, 'USE_RGB') and cfg.MODEL.USE_RGB and hasattr(cfg.MODEL, 'USE_POSE') and cfg.MODEL.USE_POSE:
+                video_tensor, pose_tensor = inputs
+            elif hasattr(cfg.MODEL, 'USE_RGB') and cfg.MODEL.USE_RGB and hasattr(cfg.MODEL, 'USE_TEXT') and cfg.MODEL.USE_TEXT:
+                video_tensor, text_data = inputs
+                if isinstance(text_data, dict):
+                    input_ids = text_data.get('input_ids')
+                    attention_mask = text_data.get('attention_mask')
+                elif isinstance(text_data, (list, tuple)) and len(text_data) == 2:
+                    input_ids, attention_mask = text_data
+            elif hasattr(cfg.MODEL, 'USE_POSE') and cfg.MODEL.USE_POSE and hasattr(cfg.MODEL, 'USE_TEXT') and cfg.MODEL.USE_TEXT:
+                pose_tensor, text_data = inputs
+                if isinstance(text_data, dict):
+                    input_ids = text_data.get('input_ids')
+                    attention_mask = text_data.get('attention_mask')
+                elif isinstance(text_data, (list, tuple)) and len(text_data) == 2:
+                    input_ids, attention_mask = text_data
+                    
+        elif len(inputs) == 3:
+            # (video, input_ids, attention_mask) or (video, pose, text_data) or (pose, input_ids, attention_mask)
+            if hasattr(cfg.MODEL, 'USE_RGB') and cfg.MODEL.USE_RGB and hasattr(cfg.MODEL, 'USE_TEXT') and cfg.MODEL.USE_TEXT and not (hasattr(cfg.MODEL, 'USE_POSE') and cfg.MODEL.USE_POSE):
+                video_tensor, input_ids, attention_mask = inputs
+            elif hasattr(cfg.MODEL, 'USE_POSE') and cfg.MODEL.USE_POSE and hasattr(cfg.MODEL, 'USE_TEXT') and cfg.MODEL.USE_TEXT and not (hasattr(cfg.MODEL, 'USE_RGB') and cfg.MODEL.USE_RGB):
+                pose_tensor, input_ids, attention_mask = inputs
+            elif hasattr(cfg.MODEL, 'USE_RGB') and cfg.MODEL.USE_RGB and hasattr(cfg.MODEL, 'USE_POSE') and cfg.MODEL.USE_POSE:
+                video_tensor, pose_tensor, text_data = inputs
+                if isinstance(text_data, dict):
+                    input_ids = text_data.get('input_ids')
+                    attention_mask = text_data.get('attention_mask')
+                elif isinstance(text_data, (list, tuple)) and len(text_data) == 2:
+                    input_ids, attention_mask = text_data
+                    
+        elif len(inputs) == 4:
+            # All modalities: (video, pose, input_ids, attention_mask)
+            video_tensor, pose_tensor, input_ids, attention_mask = inputs
+            
+        # Handle case where video is a list that needs stacking
+        if video_tensor is not None and isinstance(video_tensor, list):
+            video_tensor = torch.stack(video_tensor, dim=1)
+            
+    else:
+        # Single input - assume it's video
+        video_tensor = inputs
+    
+    return video_tensor, pose_tensor, input_ids, attention_mask
 
 
 @torch.no_grad()
 def perform_test(test_loader, model, test_meter, cfg, writer=None):
     """
-    For classification:
-    Perform mutli-view testing that uniformly samples N clips from a video along
-    its temporal axis. For each clip, it takes 3 crops to cover the spatial
-    dimension, followed by averaging the softmax scores across all Nx3 views to
-    form a video-level prediction. All video predictions are compared to
-    ground-truth labels and the final testing performance is logged.
-    For detection:
-    Perform fully-convolutional testing on the full frames without crop.
-    Args:
-        test_loader (loader): video testing loader.
-        model (model): the pretrained video model to test.
-        test_meter (TestMeter): testing meters to log and ensemble the testing
-            results.
-        cfg (CfgNode): configs. Details can be found in
-            slowfast/config/defaults.py
-        writer (TensorboardWriter object, optional): TensorboardWriter object
-            to writer Tensorboard log.
+    Perform multi-view testing with ablation support for different modality combinations.
     """
     # Enable eval mode.
     model.eval()
     test_meter.iter_tic()
+    
+    # Log ablation configuration
+    use_rgb = getattr(cfg.MODEL, 'USE_RGB', True)
+    use_pose = getattr(cfg.MODEL, 'USE_POSE', True)
+    use_text = getattr(cfg.MODEL, 'USE_TEXT', True)
+    
+    logger.info("Testing with ablation configuration:")
+    logger.info(f"  RGB: {'ENABLED' if use_rgb else 'DISABLED'}")
+    logger.info(f"  Pose: {'ENABLED' if use_pose else 'DISABLED'}")  
+    logger.info(f"  Text: {'ENABLED' if use_text else 'DISABLED'}")
 
     for cur_iter, (inputs, labels, video_idx, meta) in enumerate(test_loader):
         if cfg.NUM_GPUS:
-            # Transfer the data to the current GPU device.
-            if isinstance(inputs, (list,)):
-                # -------------------------------------------------------------
-                # inputs is a tuple (frames, pose_tensor) coming from __getitem__
-                #   frames:  Tensor [B, C, T, H, W]   (UniFormerV2 expects this)
-                #   pose  :  Tensor [B, T, J, D]
-                # -------------------------------------------------------------
-                #video_tensor, pose_tensor = inputs        # unpack once — no loop
-                frames, input_ids, attention_mask = inputs
-                if isinstance(frames, list):
-                    frames = torch.stack(frames, dim=1)
-
-                # Move pose tensor to GPU
-                frames = frames.cuda(non_blocking=True)
-                #pose_tensor  = pose_tensor.cuda(non_blocking=True)   # (16, T, J, D)
+            # Extract modalities from inputs
+            video_tensor, pose_tensor, input_ids, attention_mask = extract_modalities_from_inputs(inputs, cfg)
+            
+            # Move tensors to GPU based on what's available and enabled
+            if video_tensor is not None and use_rgb:
+                video_tensor = video_tensor.cuda(non_blocking=True)
+            else:
+                video_tensor = None
+                
+            if pose_tensor is not None and use_pose:
+                pose_tensor = pose_tensor.cuda(non_blocking=True)
+            else:
+                pose_tensor = None
+                
+            if input_ids is not None and attention_mask is not None and use_text:
                 input_ids = input_ids.cuda(non_blocking=True)
                 attention_mask = attention_mask.cuda(non_blocking=True)
             else:
-                inputs = inputs.cuda(non_blocking=True)
+                input_ids = None
+                attention_mask = None
 
-            """ if isinstance(inputs, (list,)):
-                for i in range(len(inputs)):
-                    inputs[i] = inputs[i].cuda(non_blocking=True) """
-            
-
-            # Transfer the data to the current GPU device.
+            # Transfer labels and metadata to GPU
             labels = labels.cuda()
             video_idx = video_idx.cuda()
             for key, val in meta.items():
@@ -123,11 +148,12 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
                         val[i] = val[i].cuda(non_blocking=True)
                 else:
                     meta[key] = val.cuda(non_blocking=True)
+                    
         test_meter.data_toc()
 
         if cfg.DETECTION.ENABLE:
-            # Compute the predictions.
-            preds = model(inputs, meta["boxes"])
+            # Compute the predictions for detection
+            preds = model(video_tensor, meta["boxes"])
             ori_boxes = meta["ori_boxes"]
             metadata = meta["metadata"]
 
@@ -145,25 +171,37 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
                 metadata = torch.cat(du.all_gather_unaligned(metadata), dim=0)
 
             test_meter.iter_toc()
-            # Update and log stats.
             test_meter.update_stats(preds, ori_boxes, metadata)
             test_meter.log_iter_stats(None, cur_iter)
         else:
-            # Perform the forward pass.
-            if cfg.TEST.ADD_SOFTMAX:
-                #preds = model(video_tensor, pose_tensor).softmax(-1)
-                preds = model(frames, input_ids, attention_mask).softmax(-1)
-                #preds = model(inputs).softmax(-1)
-            else:
-                #preds = model(video_tensor, pose_tensor)
-                preds = model(frames, input_ids, attention_mask)
-                #preds = model(inputs)
+            # Perform forward pass for classification with ablation support
+            try:
+                # Call model with only the enabled modalities
+                model_kwargs = {}
+                if video_tensor is not None:
+                    model_kwargs['video_tensor'] = video_tensor
+                if pose_tensor is not None:
+                    model_kwargs['pose_tensor'] = pose_tensor
+                if input_ids is not None:
+                    model_kwargs['input_ids'] = input_ids
+                if attention_mask is not None:
+                    model_kwargs['attention_mask'] = attention_mask
+                
+                if cfg.TEST.ADD_SOFTMAX:
+                    preds = model(**model_kwargs).softmax(-1)
+                else:
+                    preds = model(**model_kwargs)
+                    
+            except Exception as e:
+                logger.error(f"Error during forward pass: {e}")
+                logger.error(f"Model inputs: {list(model_kwargs.keys())}")
+                logger.error(f"Shapes: {[(k, v.shape if v is not None else None) for k, v in model_kwargs.items()]}")
+                raise e
 
-            # Gather all the predictions across all the devices to perform ensemble.
+            # Gather all predictions across devices
             if cfg.NUM_GPUS > 1:
-                preds, labels, video_idx = du.all_gather(
-                    [preds, labels, video_idx]
-                )
+                preds, labels, video_idx = du.all_gather([preds, labels, video_idx])
+                
             if cfg.NUM_GPUS:
                 preds = preds.cpu()
                 labels = labels.cpu()
@@ -171,15 +209,17 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
 
             test_meter.iter_toc()
 
+            # Save predictions to CSV
             with open(prediction_csv_path, mode="a", newline="") as f:
-                writer = csv.writer(f)
+                csv_writer = csv.writer(f)
                 for i in range(preds.shape[0]):
                     pred_class = preds[i].argmax().item()
                     true_class = labels[i].item()
                     confidence = preds[i].max().item()
                     video_id = video_idx[i].item()
-                    writer.writerow([video_id, pred_class, true_class, confidence])
-            # Update and log stats.
+                    csv_writer.writerow([video_id, pred_class, true_class, confidence])
+                    
+            # Update test meter
             test_meter.update_stats(
                 preds.detach(), labels.detach(), video_idx.detach()
             )
@@ -187,7 +227,7 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
 
         test_meter.iter_tic()
 
-    # Log epoch stats and print the final testing results.
+    # Log epoch stats and print final testing results
     if not cfg.DETECTION.ENABLE:
         all_preds = test_meter.video_preds.clone().detach()
         all_labels = test_meter.video_labels
@@ -208,38 +248,37 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
                 "Successfully saved prediction results to {}".format(save_path)
             )
 
-    test_meter.finalize_metrics(ks=(1,2))
+    test_meter.finalize_metrics(ks=(1, 2))
     return test_meter
 
 
 def test(cfg):
     """
-    Perform multi-view testing on the pretrained video model.
+    Perform multi-view testing on the pretrained video model with ablation support.
     Args:
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
     """
-    # Set up environment.
+    # Set up environment
     du.init_distributed_training(cfg)
-    # Set random seed from configs.
+    # Set random seed from configs
     np.random.seed(cfg.RNG_SEED)
     torch.manual_seed(cfg.RNG_SEED)
 
-    # Setup logging format.
+    # Setup logging format
     logging.setup_logging(cfg.OUTPUT_DIR)
 
-    # Print config.
+    # Print config
     logger.info("Test with config:")
     logger.info(cfg)
 
-    # Build the video model and print model statistics.
+    # Build the video model and print model statistics
     model = build_model(cfg)
-    #if du.is_master_proc() and cfg.LOG_MODEL_INFO:
-        #misc.log_model_info(model, cfg, use_train_input=False)
-
+    
+    # Load test checkpoint
     cu.load_test_checkpoint(cfg, model)
 
-    # Create video testing loaders.
+    # Create video testing loaders
     test_loader = loader.construct_loader(cfg, "test")
     logger.info("Testing model for {} iterations".format(len(test_loader)))
     logger.info(f"Add softmax after prediction: {cfg.TEST.ADD_SOFTMAX}")
@@ -253,7 +292,7 @@ def test(cfg):
             % (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS)
             == 0
         )
-        # Create meters for multi-view testing.
+        # Create meters for multi-view testing
         test_meter = TestMeter(
             test_loader.dataset.num_videos
             // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
@@ -264,7 +303,7 @@ def test(cfg):
             cfg.DATA.ENSEMBLE_METHOD,
         )
 
-    # Set up writer for logging to Tensorboard format.
+    # Set up writer for logging to Tensorboard format
     if cfg.TENSORBOARD.ENABLE and du.is_master_proc(
         cfg.NUM_GPUS * cfg.NUM_SHARDS
     ):
@@ -272,22 +311,19 @@ def test(cfg):
     else:
         writer = None
 
-    # # Perform multi-view test on the entire dataset.
+    # Perform multi-view test on the entire dataset
     test_meter = perform_test(test_loader, model, test_meter, cfg, writer)
-    print("AFTER TESTS METER????? IDEK")
+    logger.info("Test completed successfully")
+    
     if writer is not None:
         writer.close()
 
-    
+    # Save results
     file_name = f'{cfg.DATA.NUM_FRAMES}x{cfg.DATA.TEST_CROP_SIZE}x{cfg.TEST.NUM_ENSEMBLE_VIEWS}x{cfg.TEST.NUM_SPATIAL_CROPS}.pkl'
-    with g_pathmgr.open(os.path.join(
-        cfg.OUTPUT_DIR, file_name),
-        'wb'
-    ) as f:
+    with g_pathmgr.open(os.path.join(cfg.OUTPUT_DIR, file_name), 'wb') as f:
         result = {
             'video_preds': test_meter.video_preds.cpu().numpy(),
             'video_labels': test_meter.video_labels.cpu().numpy()
         }
-        print("RESULTS:",result)
-        logger.info("RESULTS:",result)
+        logger.info(f"Saving results with shape: preds={result['video_preds'].shape}, labels={result['video_labels'].shape}")
         pickle.dump(result, f)

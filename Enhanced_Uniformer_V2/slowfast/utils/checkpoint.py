@@ -394,6 +394,18 @@ def load_checkpoint(
                     logger.info("Network weights {} not loaded.".format(k))
             # Load pre-trained weights.
             logger.info('Load strict==True')
+
+            # CHANGE THIS FOR EVERY TEST
+            # [0.49933264 0.5006674 ] UBI RWF ONLY
+            # [0.49732584 0.50267416] UBI FINETUNED
+            # [0.33267263, 0.33635175, 0.3309756] RGB + POSE + TEXT
+            # [0.4947539 0.5052461] RGB + POSE
+            # [0.5019264 0.4980736] RGB + TEXT
+            # [0.5978012  0.40219882] POSE + TEXT
+            # [0.49487776 0.50512224] RGB + POSE NO VELO
+            #pre_train_dict_match["modality_weighting.modality_weights"] = torch.tensor(
+            #   [0.49933264, 0.5006674 ], dtype=torch.float32
+            #)
             msg=ms.load_state_dict(pre_train_dict_match, strict=True) #changed this to False
             print(msg)
             epoch = -1

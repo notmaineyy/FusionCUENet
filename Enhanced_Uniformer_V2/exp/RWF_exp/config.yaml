@@ -1,6 +1,6 @@
 TRAIN:
   ENABLE: False
-  DATASET: fusion_blip_dataset # kinetics_sparse
+  DATASET: kinetics_sparse #blip_fusion_rgb_dataset # kinetics_sparse Blip_fusion_rgb_dataset
   BATCH_SIZE: 16
   EVAL_PERIOD: 1
   CHECKPOINT_PERIOD: 1
@@ -15,10 +15,12 @@ DATA:
   TRAIN_CROP_SIZE: 192  # Instead of 224
   TEST_CROP_SIZE: 256   # Instead of 336
   INPUT_CHANNEL_NUM: [3]
-  PATH_TO_DATA_DIR: /vol/bitbucket/sna21/dataset/VioGuard
+  PATH_TO_DATA_DIR: /vol/bitbucket/sna21/dataset/UBI_FIGHTS
+  PATH_PREFIX: /vol/bitbucket/sna21/dataset/UBI_FIGHTS
   TRAIN_JITTER_SCALES_RELATIVE: [0.08, 1.0]
   TRAIN_JITTER_ASPECT_RELATIVE: [0.75, 1.3333]
-  CAPTION_PATH_PREFIX: /vol/bitbucket/sna21/dataset/VioGuard/blip
+  CAPTION_PATH_PREFIX: /vol/bitbucket/sna21/dataset/UBI_FIGHTS/blip
+  POSE_PATH_PREFIX: /vol/bitbucket/sna21/dataset/UBI_FIGHTS/multi/pose_outputs
 UNIFORMERV2:
   BACKBONE: 'uniformerv2_l14_336'
   N_LAYERS: 4
@@ -36,19 +38,24 @@ UNIFORMERV2:
 MODEL:
   NUM_CLASSES: 2
   ARCH: uniformerv2
-  MODEL_NAME: BlipFusionCUENet #Uniformerv2 FusionCUENet ImprovedFusionCUENet BlipFusionCUENet
+  MODEL_NAME: Uniformerv2 #BlipFusionRGBCUENet_v2 #Uniformerv2 FusionCUENet ImprovedFusionCUENet BlipFusionCUENet BlipFusionRGBCUENet
   LOSS_FUNC: dynamic_ce_tloss
   DROPOUT_RATE: 0.5
   USE_CHECKPOINT: True
   CHECKPOINT_NUM: [24]
   FREEZE_TEXT_ENCODER: True
+  USE_RGB: True
+  USE_POSE: False
+  USE_TEXT: False
+  POSE_USE_VELOCITY: False
 TEST:
   ENABLE: True
-  DATASET: fusion_blip_dataset # fusion_dataset kinetics_sparse Fusion_blip_dataset
+  DATASET: kinetics_sparse #blip_fusion_rgb_dataset # fusion_dataset kinetics_sparse Fusion_blip_dataset
   BATCH_SIZE: 1
   NUM_SPATIAL_CROPS: 1
   NUM_ENSEMBLE_VIEWS: 1
-  CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/CUENet/best_checkpoints/blip_eighted/checkpoint_epoch_00158.pyth
+  CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth
+  
 NUM_SHARDS: 1
 RNG_SEED: 0
-OUTPUT_DIR: /vol/bitbucket/sna21/checkpoints/improved_fusion_blip_0/
+OUTPUT_DIR: /vol/bitbucket/sna21/checkpoints/ubi_study_from_scratch/

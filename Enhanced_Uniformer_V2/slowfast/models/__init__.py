@@ -16,3 +16,7 @@ from .uniformerv2 import Uniformerv2 # noqa
 from .fusion_cuenet import FusionCUENet # noqa
 from .improved_fusion_cuenet import ImprovedFusionCUENet
 from .blip_fusion_cuenet import BlipFusionCUENet # noqa
+#from .blip_mediapipe_rgb import BlipFusionRGBCUENet  # noqa
+#from .blipfusion_rgb_cuenet import BlipFusionRGBCUENet  # noqa
+from .ablation_script import BlipFusionRGBCUENet_v1  # noqa
+from .ablation_weights import BlipFusionRGBCUENet_v2  # noqa

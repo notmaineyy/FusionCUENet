@@ -58,6 +58,15 @@ class PoseTemporalEncoder(nn.Module):
         x: (B, T, P, J, 4) -> (x, y, z, confidence)
         Returns: (B, T, D)
         """
+        original_shape = x.shape
+        
+        # Handle different input shapes
+        if x.dim() == 6:  # (B, 1, T, P, J, 3) - squeeze out the extra dimension
+            if x.shape[1] == 1:
+                x = x.squeeze(1)  # -> (B, T, P, J, 3)
+            else:
+                raise ValueError(f"Unexpected 6D pose tensor shape: {x.shape}")
+            
         coords = x[..., :3]  # (B, T, P, J, 3)
         conf = x[..., 3]     # (B, T, P, J)
         B, T, P, J, _ = coords.shape

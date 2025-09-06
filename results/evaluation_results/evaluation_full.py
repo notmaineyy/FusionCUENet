@@ -14,8 +14,8 @@ from sklearn.metrics import (
 )
 
 # === Paths ===
-input_dir = "/vol/bitbucket/sna21/dataset/predictions/rlvs"
-base_output_dir = "/vol/bitbucket/sna21/CUENet/results/evaluation_results/rlvs"
+input_dir = "/vol/bitbucket/sna21/dataset/predictions/ubi_fights"
+base_output_dir = "/vol/bitbucket/sna21/CUENet/results/evaluation_results/ubi_fights"
 os.makedirs(base_output_dir, exist_ok=True)
 
 # === Initialize list to collect all metrics ===
@@ -78,9 +78,13 @@ for file in os.listdir(input_dir):
 
         # === ROC Curve & AUC (Binary only) ===
         if len(labels) == 2:
-            y_score = df["confidence"]
-            fpr, tpr, _ = roc_curve(y_true, y_score)
+            y_score = np.where(df["predicted_class"] == 1,
+                   df["confidence"],
+                   1 - df["confidence"])
             auc = roc_auc_score(y_true, y_score)
+            #y_score = df["confidence"]
+            fpr, tpr, _ = roc_curve(y_true, y_score)
+            #auc = roc_auc_score(y_true, y_score)
             metrics_dict["auc"] = auc
 
             plt.figure(figsize=(6, 4))
