@@ -1,0 +1,2 @@
+model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
+video_predictions,0.8425,0.8463181576885159,0.8425,0.8420646908040286,0.8099547511312217,0.895,0.850356294536817,0.88268156424581,0.79,0.8337730870712401,0.649125

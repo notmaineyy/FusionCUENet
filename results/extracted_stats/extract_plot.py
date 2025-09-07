@@ -6,28 +6,30 @@ import matplotlib.pyplot as plt
 import os
 
 # === INPUT CONFIG ===
-log_file_path = "/vol/bitbucket/sna21/logs/run_net_174538.out"
-output_dir = "/vol/bitbucket/sna21/CUENet/results/extracted_stats/fl_tvr"
+log_file_path = "/vol/bitbucket/sna21/logs/run_net_200832.out" #ubi from scratch
+#"/vol/bitbucket/sna21/logs/run_net_200795.out" #ubi finetune
+#"/vol/bitbucket/sna21/logs/run_net_200280.out" #rwf only rgb pose
+#"/vol/bitbucket/sna21/logs/run_net_199997.out" # rgb pose no velo
+# "/vol/bitbucket/sna21/logs/run_net_197495.out" text only
+# "/vol/bitbucket/sna21/logs/run_net_196892.out" pose text
+# "/vol/bitbucket/sna21/logs/run_net_196517.out" rgb text
+# "/vol/bitbucket/sna21/logs/run_net_195168.out"  rgb pose
+#"/vol/bitbucket/sna21/logs/run_net_194471.out" all
+#  #"/vol/bitbucket/sna21/logs/run_net_194610.out" poe only
+output_dir = "/vol/bitbucket/sna21/CUENet/results/extracted_stats/ubi_from_scratch"
 train_output_path = os.path.join(output_dir, "train_epoch_stats.csv")
 val_output_path = os.path.join(output_dir, "val_epoch_stats.csv")
 plot_output_path = os.path.join(output_dir, "training_validation_curves.png")
 start_line = 1  # Start processing from this line
-
+plot_output_path_acc = os.path.join(output_dir, "training_validation_accuracy.png")
+plot_output_path_loss = os.path.join(output_dir, "training_validation_loss.png")
+start_line = 1
 # === REGEX & FIELDS ===
 pattern_json = re.compile(r'json_stats:\s*({.*})')
 train_fields = ["epoch", "accuracy", "loss", "lr", "RAM", "gpu_mem"]
 val_fields = ["epoch", "accuracy", "loss", "RAM", "gpu_mem"]
 train_epoch_data = []
 val_epoch_data = []
-
-def parse_val_results_line(line):
-    if "Val results:" not in line:
-        return None
-    parts = line.split("Val results:")[1].strip().split(", ")
-    for part in parts:
-        if part.startswith("Loss="):
-            return part.split('=')[1]
-    return None
 
 # === EXTRACTION ===
 with open(log_file_path, "r") as log_file:
@@ -45,20 +47,52 @@ with open(log_file_path, "r") as log_file:
                 json_str = match_json.group(1)
                 data = json.loads(json_str)
                 _type = data.get('_type')
-                
+
+                # Only save train_epoch and val_epoch lines
                 if _type == 'train_epoch':
                     record = {field: data.get(field) for field in train_fields}
                     train_epoch_data.append(record)
-                
+                    print(f"Train record added: Epoch {record['epoch']}")
+
                 elif _type == 'val_epoch':
-                    record = {field: data.get(field) for field in ['epoch', 'accuracy', 'RAM', 'gpu_mem']}
+                    # Create record from first val_epoch line
+                    record = {field: data.get(field) for field in ['epoch', 'accuracy', 'loss', 'RAM', 'gpu_mem']}
+
+                    # If accuracy contains %, clean it
+                    if record['accuracy'] and isinstance(record['accuracy'], str):
+                        record['accuracy'] = record['accuracy'].replace('%', '')
+
+                    # Peek ahead at next line to merge RAM/gpu info if available
+                    pos = log_file.tell()  # remember file pointer
                     next_line = log_file.readline()
-                    if not next_line:
+
+                    if next_line:
+                        match_next = pattern_json.search(next_line)
+                        if match_next:
+                            try:
+                                next_data = json.loads(match_next.group(1))
+                                # If next line is also val_epoch, merge fields
+                                if next_data.get('_type') == 'val_epoch':
+                                    # Merge missing fields
+                                    for field in ['RAM', 'gpu_mem']:
+                                        if not record.get(field) and next_data.get(field):
+                                            record[field] = next_data.get(field)
+                            except json.JSONDecodeError:
+                                pass
+                    else:
                         break
-                    loss_val = parse_val_results_line(next_line)
-                    if loss_val is not None:
-                        record['loss'] = loss_val
-                        val_epoch_data.append(record)
+
+                    # Ensure all fields exist
+                    for field in ['loss', 'RAM', 'gpu_mem']:
+                        if field not in record:
+                            record[field] = ""
+
+                    # Save single merged record
+                    val_epoch_data.append(record)
+                    print(f" Val record added: Epoch {record['epoch']} | Acc {record['accuracy']} | Loss {record['loss']}")
+
+
+
             except json.JSONDecodeError:
                 continue
             except Exception as e:
@@ -85,7 +119,7 @@ if val_epoch_data:
 # === PLOTTING ===
 def extract_epoch(epoch_str):
     match = re.match(r'(\d+)', str(epoch_str))
-    return int(match.group()) - 15 if match else None
+    return int(match.group()) if match else None
 
 train_df = pd.read_csv(train_output_path)
 val_df = pd.read_csv(val_output_path)
@@ -97,22 +131,23 @@ df = pd.merge(train_df[['epoch', 'accuracy', 'loss']],
               on='epoch',
               suffixes=('_train', '_val'))
 
-plt.figure(figsize=(12, 5))
+# Combined plot: Accuracy (left) and Loss (right)
+plt.figure(figsize=(14, 6))
 
-# Accuracy plot
+# Accuracy subplot
 plt.subplot(1, 2, 1)
-plt.plot(df['epoch'], df['accuracy_train'], label='Train Accuracy', marker='o', color='blue')
-plt.plot(df['epoch'], df['accuracy_val'], label='Val Accuracy', marker='o', color='orange')
+plt.plot(df['epoch']-15, df['accuracy_train'], label='Train Accuracy', marker='o')
+plt.plot(df['epoch']-15, df['accuracy_val'], label='Val Accuracy', marker='o')
 plt.title('Accuracy Curve')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend()
 plt.grid(True)
 
-# Loss plot
+# Loss subplot
 plt.subplot(1, 2, 2)
-plt.plot(df['epoch'], df['loss_train'], label='Train Loss', marker='o', color='red')
-plt.plot(df['epoch'], df['loss_val'], label='Val Loss', marker='o', color='green')
+plt.plot(df['epoch']-15, df['loss_train'], label='Train Loss', marker='o')
+plt.plot(df['epoch']-15, df['loss_val'], label='Val Loss', marker='o')
 plt.title('Loss Curve')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
@@ -122,4 +157,4 @@ plt.grid(True)
 plt.tight_layout()
 plt.savefig(plot_output_path)
 plt.show()
-print(f"Plot saved to {plot_output_path}")
+print(f"Combined Accuracy & Loss plot saved to {plot_output_path}")

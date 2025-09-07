@@ -1,0 +1,2 @@
+model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
+dynamic_rgb,0.8875,0.898344941019249,0.8875,0.8867290495937978,0.8326180257510729,0.97,0.8960739030023095,0.9640718562874252,0.805,0.8773841961852861,0.624725

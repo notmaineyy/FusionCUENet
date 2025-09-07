@@ -1,0 +1,2 @@
+model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
+original_cuenet,0.746268656716418,0.8068181818181819,0.7875,0.7453610552202101,1.0,0.575,0.7301587301587301,0.6136363636363636,1.0,0.7605633802816901,0.9842592592592592
