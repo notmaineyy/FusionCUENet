@@ -587,7 +587,7 @@ def uniformerv2_l14_336(
         layers=24,
         heads=16,
         output_dim=768,
-        use_checkpoint=use_checkpoint,
+        use_checkpoint=False,
         checkpoint_num=checkpoint_num,
         t_size=t_size,
         dw_reduction=dw_reduction, 

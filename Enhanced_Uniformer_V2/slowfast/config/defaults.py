@@ -165,6 +165,9 @@ _C.TEST.CHECKPOINT_TYPE = "pytorch"
 # Path to saving prediction results file.
 _C.TEST.SAVE_RESULTS_PATH = ""
 
+# Path to save CSV file with predictions (video_index, predicted_class, true_class, confidence)
+_C.TEST.PREDICTION_CSV_PATH = ""
+
 # Whether testing the best model, it will test the latest model by default.
 _C.TEST.TEST_BEST = False
 
@@ -625,6 +628,8 @@ _C.DATA = CfgNode()
 # The path to the data directory.
 _C.DATA.PATH_TO_DATA_DIR = "/vol/bitbucket/sna21/dataset/"
 
+_C.DATA.CAPTION_JSON_PATH = "/vol/bitbucket/sna21/dataset/VioGuard/video_llm_captions.json"
+
 # The path to the extra data directory.
 _C.DATA.EXTRA_PATH_TO_DATA_DIR = ""
 
@@ -754,7 +759,7 @@ _C.SOLVER.STEPS = []
 _C.SOLVER.LRS = []
 
 # Maximal number of epochs.
-_C.SOLVER.MAX_EPOCH = 215
+_C.SOLVER.MAX_EPOCH = 350
 
 # Momentum.
 _C.SOLVER.MOMENTUM = 0.9
@@ -851,7 +856,7 @@ _C.BENCHMARK.SHUFFLE = True
 _C.DATA_LOADER = CfgNode()
 
 # Number of data loader workers per training process.
-_C.DATA_LOADER.NUM_WORKERS = 6
+_C.DATA_LOADER.NUM_WORKERS = 1
 
 # Load data to pinned host memory.
 _C.DATA_LOADER.PIN_MEMORY = True
@@ -1174,6 +1179,34 @@ _C.DEMO.COMMON_CLASS_NAMES = [
 # Slow-motion rate for the visualization. The visualized portions of the
 # video will be played `_C.DEMO.SLOWMO` times slower than usual speed.
 _C.DEMO.SLOWMO = 1
+
+# -----------------------------------------------------------------------------
+# Distillation options
+# -----------------------------------------------------------------------------
+_C.DISTILLATION = CfgNode()
+
+# Enable distillation
+_C.DISTILLATION.ENABLE = False
+
+# Path to the pretrained teacher checkpoint
+_C.DISTILLATION.TEACHER_CHECKPOINT = ""
+
+# The projection dimension for CRD (features projected to this dim)
+_C.DISTILLATION.FEAT_DIM = 128
+
+# Number of negative samples for NCE (Memory Bank size)
+# 16384 is standard for CIFAR/ImageNet, adjust based on GPU memory
+_C.DISTILLATION.NCE_K = 16384
+
+# Temperature for NCE
+_C.DISTILLATION.NCE_T = 0.07
+
+# Momentum for updating the memory bank
+_C.DISTILLATION.NCE_M = 0.5
+
+# Weight for the CRD loss (Beta). 
+# Total Loss = Task_Loss + Beta * CRD_Loss
+_C.DISTILLATION.BETA = 0.8
 
 # Add custom config with default values.
 custom_config.add_custom_config(_C)

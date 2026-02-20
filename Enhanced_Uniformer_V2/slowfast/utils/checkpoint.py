@@ -403,8 +403,10 @@ def load_checkpoint(
             # [0.5019264 0.4980736] RGB + TEXT
             # [0.5978012  0.40219882] POSE + TEXT
             # [0.49487776 0.50512224] RGB + POSE NO VELO
+            # [0.49423364, 0.5057664 ] cvpr rf
+            # [0.49680874 0.5031913 ] cvpr rlv
             #pre_train_dict_match["modality_weighting.modality_weights"] = torch.tensor(
-            #   [0.49933264, 0.5006674 ], dtype=torch.float32
+            #   [0.49680874, 0.5031913 ], dtype=torch.float32
             #)
             msg=ms.load_state_dict(pre_train_dict_match, strict=True) #changed this to False
             print(msg)

@@ -13,3 +13,5 @@ from .anet import Anet # shared for ActivityNet and HACS
 from .mit import Mit # for Moments in Time
 from .fusion import Fusion_dataset # for Fusion dataset
 from .fusion_blip import Fusion_blip_dataset  # for Fusion dataset with BLIP captions
+from .blip_mediapipe_rgb import Blip_fusion_rgb_dataset  # for BlipFusion with MediaPipe RGB data
+from .eccv import Vioguard_eccv  # for VioGuard ECCV dataset

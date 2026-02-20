@@ -102,7 +102,7 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
         if writer is not None:
             writer.plot_eval(preds=all_preds, labels=all_labels)
 
-        save_path_csv = "/vol/bitbucket/sna21/dataset/predictions/ubi_fights/original_cuenet.csv"
+        save_path_csv = "/vol/bitbucket/sna21/dataset/predictions/cvpr/rf_to_rlv.csv"
 
         if du.is_root_proc():
             predicted_classes = all_preds.argmax(dim=1).numpy()

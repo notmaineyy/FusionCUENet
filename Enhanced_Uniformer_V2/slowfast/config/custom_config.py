@@ -11,4 +11,13 @@ def add_custom_config(_C):
     _C.DATA.NUM_JOINTS = 33
     _C.MODEL.FREEZE_TEXT_ENCODER = False  # Whether to freeze the text encoder during training
     _C.DATA.CAPTION_PATH_PREFIX = "/vol/bitbucket/sna21/dataset/VioGuard/blip"
+    _C.MODEL.USE_RGB = True
+    _C.MODEL.USE_POSE = False
+    _C.MODEL.USE_TEXT = False
+    _C.MODEL.POSE_USE_VELOCITY = False
+    _C.MODEL.ENABLE_LORA = False
+    _C.MODEL.SOFT_PROMPT = False
+    _C.MODEL.SOFT_PROMPT_N_CTX = 16
+    _C.TEST.PREDICTION_CSV_PATH = ""
+
     pass

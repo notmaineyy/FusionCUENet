@@ -25,7 +25,7 @@ import csv
 import os
 
 # CSV file path
-prediction_csv_path = "/vol/bitbucket/sna21/dataset/predictions/ubi_fights/original_cuenet.csv"
+prediction_csv_path = "/vol/bitbucket/sna21/dataset/predictions/eccv/9_text_with_soft.csv"
 
 # Initialize CSV with headers (do this once before calling perform_test)
 with open(prediction_csv_path, mode="w", newline="") as f:

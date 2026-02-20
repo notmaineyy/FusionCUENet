@@ -78,8 +78,8 @@ class Blip_fusion_rgb_dataset(Dataset):
 
                 for idx in range(self._num_clips):
                     video_path = os.path.join(self.cfg.DATA.PATH_PREFIX, path)
-                    pose_name = os.path.splitext(path)[0] + "_pose.npy"
-                    #pose_name = os.path.splitext(os.path.basename(path))[0] + "_pose.npy"
+                    #pose_name = os.path.splitext(path)[0] + "_pose.npy"
+                    pose_name = os.path.splitext(os.path.basename(path))[0] + "_pose.npy"
                     pose_path = os.path.join(self.cfg.DATA.POSE_PATH_PREFIX, pose_name)
 
                     self._path_to_videos.append(video_path)

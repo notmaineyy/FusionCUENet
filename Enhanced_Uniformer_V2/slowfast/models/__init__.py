@@ -20,3 +20,5 @@ from .blip_fusion_cuenet import BlipFusionCUENet # noqa
 #from .blipfusion_rgb_cuenet import BlipFusionRGBCUENet  # noqa
 from .ablation_script import BlipFusionRGBCUENet_v1  # noqa
 from .ablation_weights import BlipFusionRGBCUENet_v2  # noqa
+from .knowledge_distillation import KnowledgeDistillationModel  # noqa
+from .eccv_architecture import FusionCUENet_eccv  # noqa

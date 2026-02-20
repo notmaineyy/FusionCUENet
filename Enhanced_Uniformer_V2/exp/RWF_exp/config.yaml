@@ -1,61 +1,99 @@
 TRAIN:
-  ENABLE: False
-  DATASET: kinetics_sparse #blip_fusion_rgb_dataset # kinetics_sparse Blip_fusion_rgb_dataset
+  ENABLE: false
+  DATASET: Vioguard_eccv
   BATCH_SIZE: 16
   EVAL_PERIOD: 1
   CHECKPOINT_PERIOD: 1
-  AUTO_RESUME: False
+  AUTO_RESUME: false
+  CHECKPOINT_EPOCH_RESET: true
   CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth
 DATA:
-  USE_OFFSET_SAMPLING: True
+  USE_OFFSET_SAMPLING: true
   DECODING_BACKEND: decord
-  NUM_FRAMES: 16 #64
-  SAMPLING_RATE: 4 #16
-  TRAIN_JITTER_SCALES: [384, 480]
-  TRAIN_CROP_SIZE: 192  # Instead of 224
-  TEST_CROP_SIZE: 256   # Instead of 336
-  INPUT_CHANNEL_NUM: [3]
-  PATH_TO_DATA_DIR: /vol/bitbucket/sna21/dataset/UBI_FIGHTS
-  PATH_PREFIX: /vol/bitbucket/sna21/dataset/UBI_FIGHTS
-  TRAIN_JITTER_SCALES_RELATIVE: [0.08, 1.0]
-  TRAIN_JITTER_ASPECT_RELATIVE: [0.75, 1.3333]
-  CAPTION_PATH_PREFIX: /vol/bitbucket/sna21/dataset/UBI_FIGHTS/blip
-  POSE_PATH_PREFIX: /vol/bitbucket/sna21/dataset/UBI_FIGHTS/multi/pose_outputs
+  NUM_FRAMES: 16
+  SAMPLING_RATE: 4
+  TRAIN_JITTER_SCALES:
+  - 384
+  - 480
+  TRAIN_CROP_SIZE: 192
+  TEST_CROP_SIZE: 256
+  INPUT_CHANNEL_NUM:
+  - 3
+  PATH_TO_DATA_DIR: /vol/bitbucket/sna21/dataset/VioGuard
+  PATH_PREFIX: /vol/bitbucket/sna21/dataset/VioGuard
+  CAPTION_JSON_PATH: /vol/bitbucket/sna21/dataset/VioGuard/video_llm_captions.json
+  TRAIN_JITTER_SCALES_RELATIVE:
+  - 0.08
+  - 1.0
+  TRAIN_JITTER_ASPECT_RELATIVE:
+  - 0.75
+  - 1.3333
+  POSE_PATH_PREFIX: /vol/bitbucket/sna21/dataset/VioGuard/multi/pose_outputs
+DISTILLATION:
+  ENABLE: false
+  TEACHER_CHECKPOINT: ''
+  FEAT_DIM: 128
+  NCE_K: 16384
+  NCE_T: 0.07
+  NCE_M: 0.5
+  BETA: 0.8
 UNIFORMERV2:
-  BACKBONE: 'uniformerv2_l14_336'
+  BACKBONE: uniformerv2_l14_336
   N_LAYERS: 4
   N_DIM: 1024
   N_HEAD: 16
   MLP_FACTOR: 4.0
-  BACKBONE_DROP_PATH_RATE: 0.
-  DROP_PATH_RATE: 0.
-  MLP_DROPOUT: [0.5, 0.5, 0.5, 0.5]
+  BACKBONE_DROP_PATH_RATE: 0.0
+  DROP_PATH_RATE: 0.0
+  MLP_DROPOUT:
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.5
   CLS_DROPOUT: 0.5
-  RETURN_LIST: [20, 21, 22, 23]
-  NO_LMHRA: True
-  TEMPORAL_DOWNSAMPLE: False
-  DELETE_SPECIAL_HEAD: True
+  RETURN_LIST:
+  - 20
+  - 21
+  - 22
+  - 23
+  NO_LMHRA: true
+  TEMPORAL_DOWNSAMPLE: false
+  DELETE_SPECIAL_HEAD: true
+  PRETRAIN: ''
 MODEL:
   NUM_CLASSES: 2
   ARCH: uniformerv2
-  MODEL_NAME: Uniformerv2 #BlipFusionRGBCUENet_v2 #Uniformerv2 FusionCUENet ImprovedFusionCUENet BlipFusionCUENet BlipFusionRGBCUENet
+  MODEL_NAME: FusionCUENet_eccv
   LOSS_FUNC: dynamic_ce_tloss
   DROPOUT_RATE: 0.5
-  USE_CHECKPOINT: True
-  CHECKPOINT_NUM: [24]
-  FREEZE_TEXT_ENCODER: True
-  USE_RGB: True
-  USE_POSE: False
-  USE_TEXT: False
-  POSE_USE_VELOCITY: False
+  USE_CHECKPOINT: true
+  CHECKPOINT_NUM:
+  - 24
+  FREEZE_TEXT_ENCODER: true
+  USE_RGB: false
+  USE_POSE: false
+  USE_TEXT: true
+  ENABLE_LORA: false
+  SOFT_PROMPT: true
+  SOFT_PROMPT_N_CTX: 16
+  POSE_USE_VELOCITY: false
+SOLVER:
+  BASE_LR: 0.005
+  LR_POLICY: cosine
+  MAX_EPOCH: 100
+  MOMENTUM: 0.9
+  WEIGHT_DECAY: 1e-4
+  WARMUP_EPOCHS: 5.0
+  WARMUP_START_LR: 1e-5
+  OPTIMIZING_METHOD: sgd
 TEST:
-  ENABLE: True
-  DATASET: kinetics_sparse #blip_fusion_rgb_dataset # fusion_dataset kinetics_sparse Fusion_blip_dataset
+  ENABLE: true
+  DATASET: Vioguard_eccv
   BATCH_SIZE: 1
   NUM_SPATIAL_CROPS: 1
   NUM_ENSEMBLE_VIEWS: 1
-  CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/CUENet/best_checkpoints/baseline/best-001.pyth
-  
+  CHECKPOINT_FILE_PATH: /vol/bitbucket/sna21/CUENet/best_checkpoints/eccv/9_text_with_soft/best.pyth
+NUM_GPUS: 1
 NUM_SHARDS: 1
 RNG_SEED: 0
-OUTPUT_DIR: /vol/bitbucket/sna21/checkpoints/ubi_study_from_scratch/
+OUTPUT_DIR: /vol/bitbucket/sna21/checkpoints/eccv_text_with_soft_num9
