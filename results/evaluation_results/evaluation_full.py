@@ -14,15 +14,18 @@ from sklearn.metrics import (
 )
 
 # === Paths ===
-input_dir = "/vol/bitbucket/sna21/dataset/predictions/ubi_fights"
-base_output_dir = "/vol/bitbucket/sna21/CUENet/results/evaluation_results/ubi_fights"
+input_dir = "/vol/bitbucket/sna21/dataset/predictions/eccv"
+base_output_dir = "/vol/bitbucket/sna21/CUENet/results/evaluation_results/eccv"
 os.makedirs(base_output_dir, exist_ok=True)
 
 # === Initialize list to collect all metrics ===
 all_metrics = []
 
 # === Process each CSV file in input directory ===
-for file in os.listdir(input_dir):
+csv_files = sorted([f for f in os.listdir(input_dir) if f.endswith(".csv")])
+print(f"Found {len(csv_files)} CSV files to process...")
+
+for file in csv_files:
     if file.endswith(".csv"):
         csv_path = os.path.join(input_dir, file)
         model_name = os.path.splitext(file)[0]
@@ -107,3 +110,11 @@ for file in os.listdir(input_dir):
 # === Save all metrics in one CSV ===
 all_metrics_df = pd.DataFrame(all_metrics)
 all_metrics_df.to_csv(os.path.join(base_output_dir, "all_models_metrics.csv"), index=False)
+all_metrics_df = all_metrics_df.sort_values("model").reset_index(drop=True)
+output_csv = os.path.join(base_output_dir, "all_models_metrics.csv")
+all_metrics_df.to_csv(output_csv, index=False)
+
+print(f"\n✓ Successfully processed {len(all_metrics)} models")
+print(f"✓ Combined metrics saved to: {output_csv}")
+print(f"\nSummary Statistics:")
+print(all_metrics_df[["model", "accuracy", "precision_macro", "recall_macro", "f1_macro"]].to_string(index=False))

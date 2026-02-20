@@ -1,0 +1,137 @@
+====================================================================================================
+BEST EPOCHS SUMMARY
+====================================================================================================
+
+Model: run_net_211487
+Best Epoch(s): 
+Validation Accuracy: 83.876800
+Validation Loss: 0.273300
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_211523
+Best Epoch(s): 
+Validation Accuracy: 87.862300
+Validation Loss: 0.246700
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_211821
+Best Epoch(s): 
+Validation Accuracy: 86.594200
+Validation Loss: 0.334200
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_211866
+Best Epoch(s): 
+Validation Accuracy: 90.760900
+Validation Loss: 0.318500
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_211903
+Best Epoch(s): 
+Validation Accuracy: 85.869600
+Validation Loss: 0.313000
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_216401
+Best Epoch(s): 
+Validation Accuracy: 93.297100
+Validation Loss: 0.175400
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_217095
+Best Epoch(s): 
+Validation Accuracy: 91.485500
+Validation Loss: 0.182500
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_217110
+Best Epoch(s): 
+Validation Accuracy: 91.847800
+Validation Loss: 0.193400
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_217122
+Best Epoch(s): 
+Validation Accuracy: 91.666700
+Validation Loss: 0.192400
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_217211
+Best Epoch(s): 
+Validation Accuracy: 92.934800
+Validation Loss: 0.167500
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_217398
+Best Epoch(s): 
+Validation Accuracy: 87.318800
+Validation Loss: 0.259600
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_217399
+Best Epoch(s): 
+Validation Accuracy: 87.318800
+Validation Loss: 0.259600
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_217400
+Best Epoch(s): 
+Validation Accuracy: 93.297100
+Validation Loss: 0.177300
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_218358
+Best Epoch(s): 
+Validation Accuracy: 94.021700
+Validation Loss: 0.163700
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_218359
+Best Epoch(s): 
+Validation Accuracy: 92.934800
+Validation Loss: 0.174800
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_218361
+Best Epoch(s): 
+Validation Accuracy: 90.036200
+Validation Loss: 0.198200
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_218522
+Best Epoch(s): 
+Validation Accuracy: 94.021700
+Validation Loss: 0.162800
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_218524
+Best Epoch(s): 
+Validation Accuracy: 93.840600
+Validation Loss: 0.149200
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+
+Model: run_net_218638
+Best Epoch(s): 
+Validation Accuracy: 89.130400
+Validation Loss: 0.227000
+Modality Weights: None
+----------------------------------------------------------------------------------------------------
+

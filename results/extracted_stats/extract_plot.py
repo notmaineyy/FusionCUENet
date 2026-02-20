@@ -6,7 +6,27 @@ import matplotlib.pyplot as plt
 import os
 
 # === INPUT CONFIG ===
-log_file_path = "/vol/bitbucket/sna21/logs/run_net_200832.out" #ubi from scratch
+# /vol/bitbucket/sna21/logs/eccv/run_net_217110.out #lora rgb pose no velo
+#'/vol/bitbucket/sna21/logs/eccv/run_net_216401.out' lora all (done)
+#/vol/bitbucket/sna21/logs/eccv/run_net_217095.out lora rgb only (done)
+#/vol/bitbucket/sna21/logs/eccv/run_net_217122.out lora rgb pose
+#/vol/bitbucket/sna21/logs/eccv/run_net_217211.out lora_rgb_text 
+#/vol/bitbucket/sna21/logs/eccv/run_net_217398.out lora_pose_no_velo_text 
+#/vol/bitbucket/sna21/logs/eccv/run_net_217399.out lora_pose_with_velo_text 
+#/vol/bitbucket/sna21/logs/eccv/run_net_217400.out lora_rgb_pose_no_velo_text 
+
+
+log_file_path = '/vol/bitbucket/sna21/logs/eccv/run_net_217110.out' 
+
+#'/vol/bitbucket/sna21/logs/eccv/run_net_216401.out' lora all
+#'/vol/bitbucket/sna21/logs/eccv/run_net_211903.out'
+#'/vol/bitbucket/sna21/logs/eccv/run_net_211903.out' # velo & tet
+# '/vol/bitbucket/sna21/logs/eccv/run_net_211866.out' #eccv all
+#'/vol/bitbucket/sna21/logs/eccv/run_net_211523.out' #kd try 1 continue
+#'/vol/bitbucket/sna21/logs/eccv/run_net_211487.out' #kd try 1
+#"/vol/bitbucket/sna21/logs/cvpr/run_net_207165.out" #cvpr rlv
+#"/vol/bitbucket/sna21/logs/cvpr/run_net_206802.out" #cvpr rf only
+# "/vol/bitbucket/sna21/logs/run_net_200832.out" #ubi from scratch
 #"/vol/bitbucket/sna21/logs/run_net_200795.out" #ubi finetune
 #"/vol/bitbucket/sna21/logs/run_net_200280.out" #rwf only rgb pose
 #"/vol/bitbucket/sna21/logs/run_net_199997.out" # rgb pose no velo
@@ -16,7 +36,12 @@ log_file_path = "/vol/bitbucket/sna21/logs/run_net_200832.out" #ubi from scratch
 # "/vol/bitbucket/sna21/logs/run_net_195168.out"  rgb pose
 #"/vol/bitbucket/sna21/logs/run_net_194471.out" all
 #  #"/vol/bitbucket/sna21/logs/run_net_194610.out" poe only
-output_dir = "/vol/bitbucket/sna21/CUENet/results/extracted_stats/ubi_from_scratch"
+output_dir = "/vol/bitbucket/sna21/CUENet/results/extracted_stats/eccv/lora_rgb_pose_no_velo/"
+# lora_rgb_pose_no_velo  lora_rgb lora_rgb_text
+
+
+#"/vol/bitbucket/sna21/CUENet/results/extracted_stats/eccv/gemini_pose_velo_text/" 
+# #"/vol/bitbucket/sna21/CUENet/results/extracted_stats/eccv/gemini_all/" #eccv all
 train_output_path = os.path.join(output_dir, "train_epoch_stats.csv")
 val_output_path = os.path.join(output_dir, "val_epoch_stats.csv")
 plot_output_path = os.path.join(output_dir, "training_validation_curves.png")

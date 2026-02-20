@@ -1,0 +1,2 @@
+model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
+final_model_rwf,0.8425,0.8449925713278437,0.8425,0.8422150008452768,0.815668202764977,0.885,0.8489208633093526,0.8743169398907104,0.8,0.835509138381201,0.912675
