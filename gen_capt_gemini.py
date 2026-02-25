@@ -12,7 +12,7 @@ from google.api_core.exceptions import ResourceExhausted, InternalServerError, S
 #VIDEO_ROOT = #"/vol/bitbucket/sna21/dataset/VioGuard/videos"
 #OUTPUT_JSON = #"/vol/bitbucket/sna21/dataset/VioGuard/video_llm_captions.json"
 
-API_KEY = "AIzaSyCjdTqacKg_kRQfyTT2AUwrerRibyA8CVg"  # Paste your key
+API_KEY = ""  # Paste your key
 # Root folder that contains `fight/` and `normal/` subfolders referenced in the CSV
 VIDEO_ROOT = "/vol/bitbucket/sna21/dataset/UBI_FIGHTS"
 VIDEO_ROOT_FIGHT = os.path.join(VIDEO_ROOT, "fight")
