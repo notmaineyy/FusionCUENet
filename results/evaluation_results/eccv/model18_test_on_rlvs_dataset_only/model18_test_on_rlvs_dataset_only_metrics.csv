@@ -1,0 +1,2 @@
+model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
+model18_test_on_rlvs_dataset_only,0.95,0.9507211538461539,0.95,0.9499799919967987,0.9326923076923077,0.97,0.9509803921568627,0.96875,0.93,0.9489795918367347,0.9865499999999999

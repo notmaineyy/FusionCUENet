@@ -1,0 +1,2 @@
+model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
+model18_test_on_rwf_dataset_only,0.9494949494949495,0.9494897959183674,0.9494897959183674,0.9494897959183674,0.9489795918367347,0.9489795918367347,0.9489795918367347,0.95,0.95,0.95,0.9857142857142858
