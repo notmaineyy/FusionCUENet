@@ -1,2 +1,0 @@
-model,accuracy,precision_macro,recall_macro,f1_macro,precision_class_0,recall_class_0,f1_class_0,precision_class_1,recall_class_1,f1_class_1,auc
-model18_test_on_ubi_dataset_only,0.93,0.9343434343434343,0.9299999999999999,0.9298245614035088,0.9777777777777777,0.88,0.9263157894736842,0.8909090909090909,0.98,0.9333333333333333,0.9813999999999999
